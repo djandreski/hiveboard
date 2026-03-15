@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Hiveboard.Core\Hiveboard.Core.csproj" />
+    <ProjectReference Include="..\Hiveboard.Infrastructure\Hiveboard.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.5" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <DashboardProjectDir>$(MSBuildProjectDirectory)\..\Hiveboard.Dashboard</DashboardProjectDir>
+    <DashboardWwwrootDir>$(MSBuildProjectDirectory)\wwwroot</DashboardWwwrootDir>
+  </PropertyGroup>
+
+  <Target Name="BuildDashboard"
+          BeforeTargets="Build"
+          Condition="'$(DesignTimeBuild)' != 'true' and Exists('$(DashboardProjectDir)\package.json')">
+    <Exec Command="npm install" WorkingDirectory="$(DashboardProjectDir)" />
+    <Exec Command="npm run build" WorkingDirectory="$(DashboardProjectDir)" />
+  </Target>
+
+  <Target Name="CopyDashboardToWwwroot"
+          AfterTargets="Build"
+          DependsOnTargets="BuildDashboard"
+          Condition="'$(DesignTimeBuild)' != 'true' and Exists('$(DashboardProjectDir)\dist')">
+    <RemoveDir Directories="$(DashboardWwwrootDir)" Condition="Exists('$(DashboardWwwrootDir)')" />
+    <MakeDir Directories="$(DashboardWwwrootDir)" />
+    <ItemGroup>
+      <DashboardDistFiles Include="$(DashboardProjectDir)\dist\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(DashboardDistFiles)"
+          DestinationFiles="@(DashboardDistFiles->'$(DashboardWwwrootDir)\%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
+
+</Project>

@@ -1,0 +1,18 @@
+# Build outputs
+**/bin/
+**/obj/
+
+# Node artifacts
+**/node_modules/
+**/dist/
+
+# IDE/editor
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Local runtime data
+*.db
+*.db-shm
+*.db-wal
