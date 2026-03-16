@@ -10,7 +10,7 @@
   <a href="https://dotnet.microsoft.com/"><img src="https://img.shields.io/badge/.NET-10.0-512BD4?style=for-the-badge&amp;logo=dotnet&amp;logoColor=white" alt=".NET version" /></a>
   <a href="https://github.com/djandreski/hiveboard/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/djandreski/hiveboard/build.yml?branch=main&amp;style=for-the-badge&amp;label=build" alt="Build status" /></a>
   <a href="https://github.com/djandreski/hiveboard/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/djandreski/hiveboard/test.yml?branch=main&amp;style=for-the-badge&amp;label=test" alt="Test status" /></a>
-  <a href="https://github.com/djandreski/hiveboard/blob/main/LICENSE"><img src="https://img.shields.io/github/license/djandreski/hiveboard?style=for-the-badge" alt="License" /></a>
+  <a href="https://github.com/djandreski/hiveboard/blob/main/LICENSE"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.github.com%2Frepos%2Fdjandreski%2Fhiveboard%2Flicense&amp;query=%24.license.spdx_id&amp;label=license&amp;style=for-the-badge&amp;color=22c55e" alt="License" /></a>
   <a href="https://github.com/djandreski/hiveboard"><img src="https://img.shields.io/badge/status-active_development-blue?style=for-the-badge" alt="Project status" /></a>
 </p>
 
