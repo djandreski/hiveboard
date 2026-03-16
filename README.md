@@ -7,11 +7,11 @@
 <p>Hiveboard is an API-first system built for machine-to-machine collaboration between orchestrator and worker coding agents. It provides structured task management, dependency enforcement, shared decision context, and a read-only human dashboard.</p>
 
 <p>
-  <a href="https://github.com/djandreski/hiveboard/stargazers"><img src="https://img.shields.io/github/stars/djandreski/hiveboard?style=for-the-badge" alt="GitHub stars" /></a>
-  <a href="https://github.com/djandreski/hiveboard/network/members"><img src="https://img.shields.io/github/forks/djandreski/hiveboard?style=for-the-badge" alt="GitHub forks" /></a>
-  <a href="https://github.com/djandreski/hiveboard/issues"><img src="https://img.shields.io/github/issues/djandreski/hiveboard?style=for-the-badge" alt="GitHub issues" /></a>
-  <a href="https://github.com/djandreski/hiveboard/pulls"><img src="https://img.shields.io/github/issues-pr/djandreski/hiveboard?style=for-the-badge" alt="GitHub pull requests" /></a>
-  <a href="https://github.com/djandreski/hiveboard/commits"><img src="https://img.shields.io/github/last-commit/djandreski/hiveboard?style=for-the-badge" alt="GitHub last commit" /></a>
+  <a href="https://dotnet.microsoft.com/"><img src="https://img.shields.io/badge/.NET-10.0-512BD4?style=for-the-badge&amp;logo=dotnet&amp;logoColor=white" alt=".NET version" /></a>
+  <a href="https://github.com/djandreski/hiveboard/actions/workflows/build.yml"><img src="https://github.com/djandreski/hiveboard/actions/workflows/build.yml/badge.svg?branch=main" alt="Build status" /></a>
+  <a href="https://github.com/djandreski/hiveboard/actions/workflows/test.yml"><img src="https://github.com/djandreski/hiveboard/actions/workflows/test.yml/badge.svg?branch=main" alt="Test status" /></a>
+  <a href="https://github.com/djandreski/hiveboard/blob/main/LICENSE"><img src="https://img.shields.io/github/license/djandreski/hiveboard?style=for-the-badge" alt="License" /></a>
+  <a href="https://github.com/djandreski/hiveboard"><img src="https://img.shields.io/badge/status-active_development-blue?style=for-the-badge" alt="Project status" /></a>
 </p>
 
 </div>
