@@ -297,9 +297,35 @@ Before an agent can interact with Hiveboard, it must be registered. Registration
 
 #### Admin API Key
 
-A special **Admin API Key** is generated on first startup and printed to the console / log. This key is used exclusively for agent management operations (register, update, deactivate). It is not tied to any agent — it represents the human administrator.
+A special **Admin API Key** is generated on first startup and printed to the console / log. This key is used exclusively for agent management operations (register, update, deactivate, rotate keys). It is not tied to any agent — it represents the human administrator.
+
+The server stores only a **SHA-256 hash** of the admin key and a visible **key prefix** (first 12 characters, e.g., `hb_adm_ab12cd`) for identification in the dashboard. The plaintext key is never stored.
 
 The admin key can also be set via environment variable `HIVEBOARD_ADMIN_KEY` for automated deployments.
+
+#### Admin Key Rotation
+
+The admin key can be rotated at any time via the API or the dashboard Admin Panel:
+
+```
+1. Human calls POST /admin/keys/rotate with the current Admin API Key
+2. Server generates a new key (hb_adm_...), hashes it, stores the hash and prefix
+3. The new plaintext key is returned ONCE in the response — store it immediately
+4. The old key is immediately invalidated — any request using it returns 401
+```
+
+**Recovery:** If the admin key is lost, set `HIVEBOARD_ADMIN_KEY` in the environment and restart the server. The env-supplied value overrides the stored hash and becomes the active key.
+
+#### Agent Key Rotation
+
+Individual agent keys can be rotated without deactivating and re-registering the agent (e.g., when a key is compromised):
+
+```
+1. Human calls POST /agents/{id}/keys/rotate with the Admin API Key
+2. Server generates a new agent key (hb_sk_...), hashes it, replaces the stored hash
+3. New plaintext key is returned ONCE — reconfigure the agent with this key
+4. The old agent key is immediately invalidated
+```
 
 #### Agent Lifecycle
 
@@ -375,6 +401,14 @@ Once registered, worker agents become available to orchestrators. The orchestrat
 | `GET` | `/agents/me` | Any | Get current agent identity and assignments |
 | `PATCH` | `/agents/{id}` | Admin API Key | Update agent (name, platform, status) |
 | `DELETE` | `/agents/{id}` | Admin API Key | Deactivate an agent, revoke its API key |
+| `POST` | `/agents/{id}/keys/rotate` | Admin API Key | Rotate an agent's API key; old key immediately invalidated; new plaintext returned once |
+
+#### Admin Key Management
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/admin/keys/info` | Admin API Key | Get admin key metadata (prefix, `created_at`, `last_used_at`) |
+| `POST` | `/admin/keys/rotate` | Admin API Key | Rotate the admin key; old key immediately invalidated; new plaintext returned once |
 
 #### Notifications
 
@@ -561,7 +595,7 @@ When an agent decomposes a task:
 
 ### 8.1 Purpose
 
-A **read-only** web-based dashboard that gives humans visibility into what their AI agents are doing.
+A web-based dashboard that gives humans visibility into what their AI agents are doing, and provides an **Admin Panel** for key management operations. Agent and task data views are read-only. The Admin Panel requires the Admin API Key and supports write operations (key rotation).
 
 ### 8.2 Views
 
@@ -573,13 +607,15 @@ A **read-only** web-based dashboard that gives humans visibility into what their
 | **Agent Activity** | List of agents with their current task, last activity timestamp, recent events |
 | **Event Timeline** | Chronological feed of all task events across the project |
 | **Decision Log** | List of architectural decision records |
+| **Admin Panel** | Key management: admin key metadata (prefix, created/last-used timestamps), rotate admin key, view and rotate individual agent keys |
 
 ### 8.3 Technical Approach
 
 - **React SPA** built with Vite, bundled as static files and served by the ASP.NET Core host
 - The API project serves the built React app from `wwwroot/` at `/dashboard`
 - The React app calls the REST API (`/api/v1/...`) to fetch data — no direct DB access
-- No authentication for MVP (local access); API key auth for cloud version
+- Read-only views require no authentication for MVP (local access); API key auth for cloud version
+- The Admin Panel prompts for the Admin API Key once per browser session — it is stored in **session storage only** (never persisted to localStorage or cookies) and sent as the `X-Api-Key` header for admin requests
 - Auto-refreshes on a polling interval (10 seconds)
 - Styling: Tailwind CSS, dark theme
 
@@ -596,6 +632,7 @@ A **read-only** web-based dashboard that gives humans visibility into what their
 | **Dependencies** | Task dependency creation, circular detection, enforcement, auto-notification |
 | **Task Decomposition** | Agents can break tasks into subtasks; parent auto-completes |
 | **Agent Identity** | API key auth, agent registration, orchestrator/worker roles |
+| **Admin Key Management** | Admin key rotation, agent key rotation, key metadata (prefix, created/last-used timestamps) |
 | **Context Store** | Full task context retrieval (notes, history, dependencies, decisions) |
 | **Decision Log** | Free-form markdown decision records linked to projects/tasks |
 | **Notifications** | Polling-based notifications for orchestrator and workers |
@@ -639,7 +676,10 @@ A **read-only** web-based dashboard that gives humans visibility into what their
 
 ### 10.3 Security
 
-- API keys hashed with SHA-256 at rest
+- API keys hashed with SHA-256 at rest; only key prefix stored for human identification
+- Admin key and agent key rotation available at any time via API and dashboard Admin Panel
+- Admin key `last_used_at` tracked to detect unauthorized use
+- Admin key session-stored in dashboard (session storage, never localStorage)
 - Rate limiting per API key
 - Input validation on all endpoints
 - No secrets in logs

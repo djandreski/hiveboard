@@ -292,7 +292,7 @@ Make sure the migration compiles and applies cleanly to a fresh SQLite database.
 
 ### Task 5 — Authentication & Agent Registration
 
-**Goal:** Implement API key authentication, admin key bootstrap, and agent registration endpoints.
+**Goal:** Implement API key authentication, admin key bootstrap, agent registration, and key rotation endpoints.
 
 **File Targets:**
 Create these files:
@@ -300,8 +300,11 @@ Create these files:
 - `src/Hiveboard.Api/Auth/AgentContext.cs`
 - `src/Hiveboard.Api/Auth/AdminKeyProvider.cs`
 - `src/Hiveboard.Api/Endpoints/AgentEndpoints.cs`
+- `src/Hiveboard.Api/Endpoints/AdminKeyEndpoints.cs`
 - `src/Hiveboard.Api/Contracts/RegisterAgentRequest.cs`
 - `src/Hiveboard.Api/Contracts/RegisterAgentResponse.cs`
+- `src/Hiveboard.Api/Contracts/KeyRotationResponse.cs`
+- `src/Hiveboard.Api/Contracts/AdminKeyInfoResponse.cs`
 
 Update existing:
 - `src/Hiveboard.Api/Program.cs`
@@ -320,10 +323,12 @@ Read PRD-Hiveboard.md sections 5.1 (Authentication) and 5.2 (Agent Registration 
    - IsAdmin (bool) — true if the caller used the Admin API Key
 
 2. Create AdminKeyProvider.cs:
-   - On first startup, if no admin key exists, generate one (hb_admin_... + random bytes)
-   - Print it to the console: "Admin API Key: hb_admin_abc123... (save this, it won't be shown again)"
-   - Store the hash in the database or a config file
+   - On first startup, if no admin key exists, generate one (hb_adm_... + random bytes)
+   - Print it to the console: "Admin API Key: hb_adm_abc123... (save this, it won't be shown again)"
+   - Store the SHA-256 hash AND the visible key prefix (first 12 characters) in the database or config file
+   - Track created_at and last_used_at timestamps for the admin key
    - Also support HIVEBOARD_ADMIN_KEY environment variable (takes precedence)
+   - Recovery: if the admin key is lost, setting HIVEBOARD_ADMIN_KEY and restarting overrides the stored hash
 
 3. Create ApiKeyAuthHandler.cs — an ASP.NET Core authentication handler:
    - Reads the "X-Api-Key" header from the request
@@ -358,7 +363,24 @@ Read PRD-Hiveboard.md sections 5.1 (Authentication) and 5.2 (Agent Registration 
    DELETE /api/v1/agents/{id} (admin only)
    - Set agent status to inactive (soft delete), revoke API key
 
-6. Register everything in Program.cs.
+   POST /api/v1/agents/{id}/keys/rotate (admin only)
+   - Generate a new API key for the agent (hb_sk_... + 32 random bytes as hex)
+   - Hash with SHA256, replace the stored hash
+   - Return the new plaintext key ONCE — old key is immediately invalidated
+   - The agent must be reconfigured with the new key
+
+6. Create AdminKeyEndpoints.cs:
+   GET /api/v1/admin/keys/info (admin only)
+   - Return admin key metadata: prefix (first 12 chars), created_at, last_used_at
+   - Never return the key itself or its hash
+
+   POST /api/v1/admin/keys/rotate (admin only)
+   - Generate a new admin key (hb_adm_... + random bytes)
+   - Hash with SHA256, store the new hash and prefix, update created_at
+   - Return the new plaintext admin key ONCE — old key is immediately invalidated
+   - The caller must save this key immediately; subsequent requests need the new key
+
+7. Register everything in Program.cs.
 
 Test with: curl -H "X-Api-Key: <admin-key>" -X POST http://localhost:5000/api/v1/agents/register -d '{"name":"worker-1","type":"worker","platform":"claude-code","organizationId":"..."}'
 ```
@@ -375,6 +397,9 @@ Test with: curl -H "X-Api-Key: <admin-key>" -X POST http://localhost:5000/api/v1
 - [ ] Agent's last_seen_at updates on each API call
 - [ ] `/health` works without authentication
 - [ ] `/dashboard/**` works without authentication
+- [ ] Admin key rotation works — old key rejected, new key works
+- [ ] Agent key rotation works — old agent key rejected, new key works, agent identity preserved
+- [ ] GET /admin/keys/info returns prefix, created_at, last_used_at (never the key itself)
 
 ---
 
@@ -958,9 +983,9 @@ using the MCP specification over stdio or SSE transport.
 
 ---
 
-### Task 15 — Read-Only Dashboard (React SPA)
+### Task 15 — Dashboard (React SPA)
 
-**Goal:** Implement a read-only React dashboard for human oversight of agent activity.
+**Goal:** Implement a React dashboard for human oversight of agent activity, plus an Admin Panel for key management.
 
 **File Targets:**
 Create these files (the React project should already be scaffolded from Task 1):
@@ -970,6 +995,7 @@ Create these files (the React project should already be scaffolded from Task 1):
 - `src/Hiveboard.Dashboard/src/pages/AgentActivity.tsx`
 - `src/Hiveboard.Dashboard/src/pages/EventTimeline.tsx`
 - `src/Hiveboard.Dashboard/src/pages/DecisionLog.tsx`
+- `src/Hiveboard.Dashboard/src/pages/AdminPanel.tsx`
 - `src/Hiveboard.Dashboard/src/api/client.ts`
 - `src/Hiveboard.Dashboard/src/components/` (shared components)
 
@@ -978,12 +1004,13 @@ Update existing:
 
 **Agent Prompt:**
 ```
-Implement a read-only React dashboard for Hiveboard.
+Implement the React dashboard for Hiveboard.
 
 Read PRD-Hiveboard.md section 8 (Dashboard).
 
-The dashboard gives humans visibility into what their AI agents are doing. It is READ-ONLY — 
-no actions can be taken from the dashboard in the MVP.
+The dashboard gives humans visibility into what their AI agents are doing. Agent and task
+data views are read-only. The dashboard also includes an Admin Panel for key management
+operations (admin key rotation, agent key rotation).
 
 Technical stack: React + TypeScript + Vite + Tailwind CSS. The project is at src/Hiveboard.Dashboard/.
 The built output gets copied to src/Hiveboard.Api/wwwroot/dashboard/.
@@ -1016,6 +1043,19 @@ The built output gets copied to src/Hiveboard.Api/wwwroot/dashboard/.
    - List of decision records: title, status, agent, date
    - Click to expand and see full markdown content (use react-markdown)
 
+   f) Admin Panel (route: /dashboard/admin)
+   - On first visit: prompt for Admin API Key, store it in **session storage only**
+     (never localStorage or cookies). Use it as the X-Api-Key header for admin requests.
+   - Admin Key section:
+     - Show key metadata: prefix (first 12 chars), created_at, last_used_at
+     - "Rotate Admin Key" button: calls POST /admin/keys/rotate, displays the new key
+       ONCE in a copy-to-clipboard modal, warns the user to save it
+   - Agent Keys section:
+     - List all agents with: name, platform, type, status, key prefix
+     - "Rotate Key" button per agent: calls POST /agents/{id}/keys/rotate,
+       displays the new agent key ONCE in a copy-to-clipboard modal
+   - If admin key is invalid or expired, show an auth error and prompt for re-entry
+
 3. Styling: Tailwind CSS with dark theme. Clean, functional, not fancy.
 
 4. Build and serve:
@@ -1042,6 +1082,11 @@ The built output gets copied to src/Hiveboard.Api/wwwroot/dashboard/.
 - [ ] Decision log renders markdown content
 - [ ] Auto-refresh works (new data appears within 10 seconds)
 - [ ] Client-side routing works (refreshing /dashboard/projects/123/board loads correctly)
+- [ ] Admin Panel prompts for admin key and stores it in session storage
+- [ ] Admin Panel shows admin key metadata (prefix, timestamps)
+- [ ] Admin key rotation works from the dashboard — new key shown once
+- [ ] Agent key rotation works from the dashboard — new key shown once
+- [ ] Invalid/expired admin key shows auth error and re-prompts
 
 ---
 
