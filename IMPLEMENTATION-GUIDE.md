@@ -386,20 +386,20 @@ Test with: curl -H "X-Api-Key: <admin-key>" -X POST http://localhost:5000/api/v1
 ```
 
 **Acceptance Criteria:**
-- [ ] Admin API key is generated and printed on first startup
-- [ ] HIVEBOARD_ADMIN_KEY env var works as override
-- [ ] Can register a new agent with admin key → returns plaintext API key
-- [ ] Registered agent can authenticate with the returned key
-- [ ] Request without `X-Api-Key` header returns 401
-- [ ] Request with invalid key returns 401
-- [ ] GET /agents lists agents in the organization
-- [ ] GET /agents/me returns current agent identity
-- [ ] Agent's last_seen_at updates on each API call
-- [ ] `/health` works without authentication
-- [ ] `/dashboard/**` works without authentication
-- [ ] Admin key rotation works — old key rejected, new key works
-- [ ] Agent key rotation works — old agent key rejected, new key works, agent identity preserved
-- [ ] GET /admin/keys/info returns prefix, created_at, last_used_at (never the key itself)
+- [x] Admin API key is generated and printed on first startup
+- [x] HIVEBOARD_ADMIN_KEY env var works as override
+- [x] Can register a new agent with admin key → returns plaintext API key
+- [x] Registered agent can authenticate with the returned key
+- [x] Request without `X-Api-Key` header returns 401
+- [x] Request with invalid key returns 401
+- [x] GET /agents lists agents in the organization
+- [x] GET /agents/me returns current agent identity
+- [x] Agent's last_seen_at updates on each API call
+- [x] `/health` works without authentication
+- [x] `/dashboard/**` works without authentication
+- [x] Admin key rotation works — old key rejected, new key works
+- [x] Agent key rotation works — old agent key rejected, new key works, agent identity preserved
+- [x] GET /admin/keys/info returns prefix, created_at, last_used_at (never the key itself)
 
 ---
 

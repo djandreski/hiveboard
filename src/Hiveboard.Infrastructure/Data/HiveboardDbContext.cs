@@ -17,6 +17,7 @@ public class HiveboardDbContext : DbContext
     public DbSet<TaskEvent> TaskEvents => Set<TaskEvent>();
     public DbSet<DecisionRecord> DecisionRecords => Set<DecisionRecord>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<AdminKey> AdminKeys => Set<AdminKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
