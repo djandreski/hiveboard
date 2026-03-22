@@ -12,7 +12,7 @@ public class AgentConfiguration : IEntityTypeConfiguration<Agent>
         builder.Property(a => a.Name).IsRequired().HasMaxLength(200);
         builder.Property(a => a.Type).IsRequired();
         builder.Property(a => a.AgentPlatform).IsRequired();
-        builder.Property(a => a.ApiKeyHash).IsRequired().HasMaxLength(64);
+        builder.Property(a => a.ApiKeyHash).HasMaxLength(64).IsRequired(false);
         builder.Property(a => a.Status).IsRequired();
         builder.Property(a => a.CreatedAt).IsRequired();
 

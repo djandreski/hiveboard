@@ -65,16 +65,13 @@ public class ApiKeyAuthHandler : AuthenticationHandler<AuthenticationSchemeOptio
 
         // Check agent key
         var keyHash = AdminKeyProvider.HashKey(apiKey);
-        var agent = await _db.Agents.FirstOrDefaultAsync(a => a.ApiKeyHash == keyHash);
+        var agent = await _db.Agents.FirstOrDefaultAsync(a =>
+            a.Status == AgentStatus.Active &&
+            a.ApiKeyHash == keyHash);
 
         if (agent is null)
         {
             return AuthenticateResult.Fail("Invalid API key");
-        }
-
-        if (agent.Status != AgentStatus.Active)
-        {
-            return AuthenticateResult.Fail("Agent is inactive");
         }
 
         // Update last seen

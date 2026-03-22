@@ -9,7 +9,7 @@ public class Agent
     public string Name { get; set; } = string.Empty;
     public AgentType Type { get; set; }
     public AgentPlatform AgentPlatform { get; set; }
-    public string ApiKeyHash { get; set; } = string.Empty;
+    public string? ApiKeyHash { get; set; }
     public AgentStatus Status { get; set; }
     public DateTimeOffset? LastSeenAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }

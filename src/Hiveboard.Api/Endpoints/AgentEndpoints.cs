@@ -238,7 +238,22 @@ public static class AgentEndpoints
         {
             if (!Enum.TryParse<AgentStatus>(request.Status, ignoreCase: true, out var status))
                 return Results.BadRequest(new { error = "Invalid status. Must be 'active' or 'inactive'" });
-            agent.Status = status;
+
+            if (status == AgentStatus.Inactive)
+            {
+                AgentKeyLifecycle.Revoke(agent);
+            }
+            else if (AgentKeyLifecycle.RequiresNewKeyToActivate(agent))
+            {
+                return Results.BadRequest(new
+                {
+                    error = "Cannot reactivate an inactive agent without issuing a new API key. Use POST /api/v1/agents/{id}/keys/rotate."
+                });
+            }
+            else
+            {
+                agent.Status = status;
+            }
         }
 
         await db.SaveChangesAsync();
@@ -261,8 +276,7 @@ public static class AgentEndpoints
         if (agent is null)
             return Results.NotFound(new { error = "Agent not found" });
 
-        agent.Status = AgentStatus.Inactive;
-        agent.ApiKeyHash = string.Empty; // Revoke key
+        AgentKeyLifecycle.Revoke(agent);
         await db.SaveChangesAsync();
 
         return Results.Ok(new { message = $"Agent '{agent.Name}' has been deactivated" });
@@ -276,18 +290,15 @@ public static class AgentEndpoints
         if (agent is null)
             return Results.NotFound(new { error = "Agent not found" });
 
-        if (agent.Status != AgentStatus.Active)
-            return Results.BadRequest(new { error = "Cannot rotate key for inactive agent" });
-
         var plaintextKey = AdminKeyProvider.GenerateAgentKey();
         var keyHash = AdminKeyProvider.HashKey(plaintextKey);
 
-        agent.ApiKeyHash = keyHash;
+        AgentKeyLifecycle.IssueNewKey(agent, keyHash);
         await db.SaveChangesAsync();
 
         return Results.Ok(new KeyRotationResponse(
             plaintextKey,
-            "Agent API key rotated successfully. The old key is immediately invalidated."));
+            "Agent API key issued successfully. Any previously active key is immediately invalidated."));
     }
 
     private static AgentContext ResolveAgentContext(HttpContext httpContext)
