@@ -1,16 +1,38 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(UseSandboxBuildWorkaround)' != 'true'">
     <ProjectReference Include="..\Hiveboard.Core\Hiveboard.Core.csproj" />
     <ProjectReference Include="..\Hiveboard.Infrastructure\Hiveboard.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(UseSandboxBuildWorkaround)' == 'true'">
+    <Reference Include="Hiveboard.Core">
+      <HintPath>..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Hiveboard.Infrastructure">
+      <HintPath>..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseSandboxBuildWorkaround)' == 'true'">
+    <Compile Remove="obj\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseSandboxBuildWorkaround)' == 'true'">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.5" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.5" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.5">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.5" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.5" />
   </ItemGroup>
 
@@ -20,11 +42,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <DashboardProjectDir>$(MSBuildProjectDirectory)\..\Hiveboard.Dashboard</DashboardProjectDir>
     <DashboardWwwrootDir>$(MSBuildProjectDirectory)\wwwroot</DashboardWwwrootDir>
+    <BuildDashboardAssets Condition="'$(BuildDashboardAssets)' == '' and '$(UseSandboxBuildWorkaround)' == 'true'">false</BuildDashboardAssets>
+    <BuildDashboardAssets Condition="'$(BuildDashboardAssets)' == ''">true</BuildDashboardAssets>
   </PropertyGroup>
 
   <Target Name="BuildDashboard"
           BeforeTargets="Build"
-          Condition="'$(DesignTimeBuild)' != 'true' and Exists('$(DashboardProjectDir)\package.json')">
+          Condition="'$(BuildDashboardAssets)' == 'true' and '$(DesignTimeBuild)' != 'true' and Exists('$(DashboardProjectDir)\package.json')">
     <Exec Command="npm install" WorkingDirectory="$(DashboardProjectDir)" />
     <Exec Command="npm run build" WorkingDirectory="$(DashboardProjectDir)" />
   </Target>
@@ -32,7 +56,7 @@
   <Target Name="CopyDashboardToWwwroot"
           AfterTargets="Build"
           DependsOnTargets="BuildDashboard"
-          Condition="'$(DesignTimeBuild)' != 'true' and Exists('$(DashboardProjectDir)\dist')">
+          Condition="'$(BuildDashboardAssets)' == 'true' and '$(DesignTimeBuild)' != 'true' and Exists('$(DashboardProjectDir)\dist')">
     <RemoveDir Directories="$(DashboardWwwrootDir)" Condition="Exists('$(DashboardWwwrootDir)')" />
     <MakeDir Directories="$(DashboardWwwrootDir)" />
     <ItemGroup>

@@ -16,3 +16,9 @@
 *.db
 *.db-shm
 *.db-wal
+
+# Sandbox local build infrastructure
+.appdata/
+.dotnet/
+.sandbox-dotnet-root/
+.sandbox-dotnet-sdk*/

@@ -480,7 +480,7 @@ Read PRD-Hiveboard.md section 5.6 (API Discoverability & Documentation) and sect
 ---
 
 ### Task 7 — Project & Epic CRUD Endpoints
-**Status:** Implementing
+**Status:** Implemented
 
 **Goal:** Implement REST endpoints for managing projects and epics.
 
@@ -548,7 +548,7 @@ Use the DbContext directly in endpoint handlers (no repository pattern for MVP �
 ---
 
 ### Task 8 — Task CRUD & Assignment Endpoints
-**Status:** Pending
+**Status:** Implementing
 
 **Goal:** Implement task management endpoints including creation, retrieval, assignment, and listing with filters.
 
