@@ -4,10 +4,43 @@ using Hiveboard.Infrastructure;
 using Hiveboard.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.EventLog;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
+if (OperatingSystem.IsWindows())
+{
+    builder.Logging.AddFilter<EventLogLoggerProvider>(level => false);
+}
+
 builder.Services.AddHiveboardInfrastructure(builder.Configuration);
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Hiveboard REST API",
+        Version = "v1",
+        Description = "Headless project management API for multi-agent software workflows."
+    });
+
+    options.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.ApiKey,
+        Name = "X-Api-Key",
+        In = ParameterLocation.Header,
+        Description = "API key authentication. Use an agent key (Any/Orchestrator) or admin key for admin endpoints."
+    });
+
+    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecuritySchemeReference("ApiKey", document, null),
+            new List<string>()
+        }
+    });
+});
 
 // Authentication
 builder.Services.AddAuthentication("ApiKey")
@@ -26,6 +59,16 @@ builder.Services.AddAuthorizationBuilder()
 builder.Services.AddScoped<AdminKeyProvider>();
 
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Hiveboard REST API v1");
+        options.RoutePrefix = "swagger";
+    });
+}
 
 // Database initialization
 using (var scope = app.Services.CreateScope())
@@ -47,7 +90,13 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // Endpoints
-app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
+app.MapGet("/health", () => Results.Ok(new { status = "healthy" }))
+    .AllowAnonymous()
+    .WithTags("System")
+    .WithName("GetHealth")
+    .WithSummary("Health check")
+    .WithDescription("Auth: none. Returns the current API host health status.")
+    .Produces(StatusCodes.Status200OK);
 
 app.MapAgentEndpoints();
 app.MapAdminKeyEndpoints();

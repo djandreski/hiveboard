@@ -429,7 +429,7 @@ Test with: curl -H "X-Api-Key: <admin-key>" -X POST http://localhost:5000/api/v1
 ---
 
 ### Task 6 — OpenAPI Documentation & Swagger Explorer
-**Status:** Implementing
+**Status:** Implemented
 
 **Goal:** Configure OpenAPI/Swagger discoverability and document existing authentication/admin endpoints so API clients and agents can discover capabilities reliably.
 
@@ -480,7 +480,7 @@ Read PRD-Hiveboard.md section 5.6 (API Discoverability & Documentation) and sect
 ---
 
 ### Task 7 — Project & Epic CRUD Endpoints
-**Status:** Pending
+**Status:** Implementing
 
 **Goal:** Implement REST endpoints for managing projects and epics.
 

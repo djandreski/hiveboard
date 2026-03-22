@@ -8,10 +8,25 @@ public static class AdminKeyEndpoints
     public static void MapAdminKeyEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/v1/admin/keys")
+            .WithTags("Admin")
             .RequireAuthorization("AdminOnly");
 
-        group.MapGet("/info", GetAdminKeyInfo);
-        group.MapPost("/rotate", RotateAdminKey);
+        group.MapGet("/info", GetAdminKeyInfo)
+            .WithName("GetAdminKeyInfo")
+            .WithSummary("Get admin key metadata")
+            .WithDescription("Auth: Admin API Key only. Returns key prefix and timestamps; never returns plaintext key.")
+            .Produces<AdminKeyInfoResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+
+        group.MapPost("/rotate", RotateAdminKey)
+            .WithName("RotateAdminKey")
+            .WithSummary("Rotate admin API key")
+            .WithDescription("Auth: Admin API Key only. Rotates the active admin key and returns the new plaintext key once.")
+            .Produces<KeyRotationResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden);
     }
 
     private static async Task<IResult> GetAdminKeyInfo(AdminKeyProvider adminKeyProvider)
