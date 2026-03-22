@@ -537,13 +537,13 @@ Use the DbContext directly in endpoint handlers (no repository pattern for MVP â
 ```
 
 **Acceptance Criteria:**
-- [ ] Can create a project as orchestrator
-- [ ] Cannot create a project as worker (403)
-- [ ] Can list and get projects (both roles)
-- [ ] Can create epics under a project
-- [ ] Can get epic with its tasks
-- [ ] 404 for non-existent resources
-- [ ] Organization scoping works (can't see other orgs' projects)
+- [x] Can create a project as orchestrator
+- [x] Cannot create a project as worker (403)
+- [x] Can list and get projects (both roles)
+- [x] Can create epics under a project
+- [x] Can get epic with its tasks
+- [x] 404 for non-existent resources
+- [x] Organization scoping works (can't see other orgs' projects)
 
 ---
 
