@@ -505,6 +505,28 @@ When any agent transitions a task to `blocked`:
 - Only orchestrator agents can assign tasks
 - Worker agents can only modify tasks assigned to them
 
+### 5.6 API Discoverability & Documentation
+
+To support both human operators and agent toolchains, the REST API must expose machine-readable and interactive documentation.
+
+- OpenAPI 3.x specification is available at `/openapi/v1.json` (or equivalent `/swagger/v1/swagger.json`)
+- Interactive API explorer is available at `/swagger` for development and integration testing
+- OpenAPI security scheme documents `X-Api-Key` authentication and role expectations (`Any`, `Orchestrator`, `Admin API Key`)
+- Every REST endpoint defines summary, description, request schema, response schemas, and expected status codes
+- Core workflow endpoints include representative examples (`GET /tasks/{id}`, `PATCH /tasks/{id}/status`, `POST /tasks/{id}/subtasks`)
+- Operation IDs and tags are stable across patch releases to avoid breaking generated clients and agent integrations
+
+### 5.7 MCP Discoverability & Contract Stability
+
+MCP has built-in discovery, but Hiveboard still needs a stable, well-documented MCP contract for reliable agent interoperability.
+
+- MCP discovery must expose complete tool/resource metadata via standard MCP discovery operations (for example `list_tools` and `list_resources`)
+- Every MCP tool includes: stable name, clear description, input schema, and structured output shape (when supported by the SDK)
+- Every MCP resource includes: stable URI pattern, description, and response shape expectations
+- Tool/resource names are stable across patch releases; breaking changes require explicit versioning strategy (new tool/resource names or versioned server contract)
+- Validation/auth/not-found/conflict cases return structured MCP errors with machine-readable codes and actionable messages
+- A working MCP client configuration example is maintained for local integration testing
+
 ---
 
 ## 6. Task Workflow
@@ -673,6 +695,8 @@ A web-based dashboard that gives humans visibility into what their AI agents are
 - Idempotent API operations where possible
 - Optimistic concurrency on task updates (prevent race conditions on status transitions)
 - Graceful handling of agent disconnection (stale `last_seen_at`)
+- OpenAPI spec generation is validated in CI to prevent documentation drift from implemented endpoints
+- MCP discovery and tool/resource schema contracts are validated in integration tests to prevent protocol drift
 
 ### 10.3 Security
 
@@ -702,6 +726,7 @@ A web-based dashboard that gives humans visibility into what their AI agents are
 | Agents connected (across all installations) | 1,000+ |
 | Tasks completed through the system | 10,000+ |
 | Community contributions (PRs) | 20+ |
+| REST endpoints documented in OpenAPI | 100% |
 
 ---
 

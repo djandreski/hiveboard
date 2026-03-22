@@ -16,18 +16,19 @@
 
 ## 🏗 Building in Public: The Roadmap
 
-I am building Hiveboard in public with a **17-step Agentic Implementation Guide**.
+I am building Hiveboard in public with an **18-step Agentic Implementation Guide**.
 
 My role is to define architecture, constraints, and acceptance criteria. AI coding agents execute the tasks. I review the output, push the standard up, and iterate.
 
-**Current Progress: 23% Complete**
+**Current Progress: 28% Complete**
 
 - [x] **Task 1:** Project initialization and clean architecture
 - [x] **Task 2:** Domain model (tasks, epics, agents)
 - [x] **Task 3:** API foundation and dashboard scaffolding
-- [x] **Task 4:** Database migrations and seed data (EF Core) <- **WE ARE HERE**
-- [ ] **Task 5:** Project and epic endpoints
-- [ ] **Task 6-17:** Remaining API, orchestration, MCP, dashboard, and polish tasks
+- [x] **Task 4:** Database migrations and seed data (EF Core)
+- [x] **Task 5:** Authentication and agent registration
+- [ ] **Task 6:** OpenAPI documentation and Swagger explorer <- **WE ARE HERE**
+- [ ] **Task 7-18:** Remaining API, orchestration, MCP, dashboard, and polish tasks
 
 See the full execution checklist in [IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md).
 
@@ -73,7 +74,9 @@ From the PRD, the first Hiveboard release includes:
 - Circular dependency detection and dependency-aware execution gating
 - Full task context endpoint for worker execution
 - Polling notifications for orchestrators and workers
+- OpenAPI specification + Swagger UI for REST discoverability
 - MCP server interface for zero-custom integration with agent platforms
+- MCP discovery with stable tool/resource contracts and structured errors
 - Read-only React dashboard for human oversight
 - SQLite (default) and PostgreSQL provider support
 

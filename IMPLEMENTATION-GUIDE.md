@@ -1,8 +1,8 @@
-# Hiveboard — Implementation Guide
+﻿# Hiveboard — Implementation Guide
 
 ## How to Use This Guide
 
-This guide breaks the Hiveboard PRD into **17 sequential tasks**, each sized for a single AI agent session. Work through them in order — each step builds on the previous.
+This guide breaks the Hiveboard PRD into **18 sequential tasks**, each sized for a single AI agent session. Work through them in order — each step builds on the previous.
 
 **Workflow for each task:**
 1. Read the task description and acceptance criteria below
@@ -31,6 +31,7 @@ When starting a fresh task, provide:
 ## Phase 1: Foundation
 
 ### Task 1 — Solution Structure & Project Scaffolding
+**Status:** Implemented
 
 **Goal:** Create the .NET solution with properly separated projects, NuGet packages, and project references.
 
@@ -45,6 +46,10 @@ Create these files/projects (none exist yet — the agent creates them all):
 
 **Agent Prompt:**
 ```
+Status update requirement for this task:
+- At the START of this task, update IMPLEMENTATION-GUIDE.md and set Task 1 status to Implementing.
+- At the END (after acceptance criteria pass), set Task 1 status to Implemented and Task 2 status to Implementing.
+
 Create a new .NET 10 solution called "Hiveboard" with clean architecture.
 The solution should have these projects:
 
@@ -87,6 +92,7 @@ Do NOT create the existing ClaudeAgents projects — this is a new, separate sol
 ---
 
 ### Task 2 — Domain Entities & Enums
+**Status:** Implemented
 
 **Goal:** Create all domain entities and enums in the Core project, matching the PRD data model exactly.
 
@@ -115,6 +121,10 @@ Create these files (none exist yet):
 
 **Agent Prompt:**
 ```
+Status update requirement for this task:
+- At the START of this task, update IMPLEMENTATION-GUIDE.md and set Task 2 status to Implementing.
+- At the END (after acceptance criteria pass), set Task 2 status to Implemented and Task 3 status to Implementing.
+
 Read PRD-Hiveboard.md section 4 (Data Model) carefully.
 
 Create all domain entities in src/Hiveboard.Core/Entities/ and all enums in src/Hiveboard.Core/Enums/.
@@ -154,6 +164,7 @@ Requirements:
 ---
 
 ### Task 3 — EF Core DbContext & Configuration
+**Status:** Implemented
 
 **Goal:** Create the EF Core DbContext with Fluent API configuration for all entities, plus SQLite/PostgreSQL provider support.
 
@@ -181,6 +192,10 @@ Provide as context (agent needs to read these):
 
 **Agent Prompt:**
 ```
+Status update requirement for this task:
+- At the START of this task, update IMPLEMENTATION-GUIDE.md and set Task 3 status to Implementing.
+- At the END (after acceptance criteria pass), set Task 3 status to Implemented and Task 4 status to Implementing.
+
 Read PRD-Hiveboard.md section 4 (Data Model) and the entity files in src/Hiveboard.Core/Entities/.
 
 Create the EF Core setup in src/Hiveboard.Infrastructure/:
@@ -235,6 +250,7 @@ Create the EF Core setup in src/Hiveboard.Infrastructure/:
 ---
 
 ### Task 4 — Database Migrations & Seed Data
+**Status:** Implemented
 
 **Goal:** Create the initial EF Core migration and a seed data mechanism for development.
 
@@ -250,6 +266,10 @@ Update existing:
 
 **Agent Prompt:**
 ```
+Status update requirement for this task:
+- At the START of this task, update IMPLEMENTATION-GUIDE.md and set Task 4 status to Implementing.
+- At the END (after acceptance criteria pass), set Task 4 status to Implemented and Task 5 status to Implementing.
+
 Set up EF Core migrations and seed data for the Hiveboard project.
 
 1. Add the EF Core Design package to Hiveboard.Infrastructure if not already present.
@@ -291,6 +311,7 @@ Make sure the migration compiles and applies cleanly to a fresh SQLite database.
 ## Phase 2: Core API
 
 ### Task 5 — Authentication & Agent Registration
+**Status:** Implemented
 
 **Goal:** Implement API key authentication, admin key bootstrap, agent registration, and key rotation endpoints.
 
@@ -311,6 +332,10 @@ Update existing:
 
 **Agent Prompt:**
 ```
+Status update requirement for this task:
+- At the START of this task, update IMPLEMENTATION-GUIDE.md and set Task 5 status to Implementing.
+- At the END (after acceptance criteria pass), set Task 5 status to Implemented and Task 6 status to Implementing.
+
 Implement API key authentication and agent registration for the Hiveboard API.
 
 Read PRD-Hiveboard.md sections 5.1 (Authentication) and 5.2 (Agent Registration & Onboarding).
@@ -403,7 +428,59 @@ Test with: curl -H "X-Api-Key: <admin-key>" -X POST http://localhost:5000/api/v1
 
 ---
 
-### Task 6 — Project & Epic CRUD Endpoints
+### Task 6 — OpenAPI Documentation & Swagger Explorer
+**Status:** Implementing
+
+**Goal:** Configure OpenAPI/Swagger discoverability and document existing authentication/admin endpoints so API clients and agents can discover capabilities reliably.
+
+**File Targets:**
+Update existing:
+- `src/Hiveboard.Api/Program.cs`
+- `src/Hiveboard.Api/Endpoints/AgentEndpoints.cs`
+- `src/Hiveboard.Api/Endpoints/AdminKeyEndpoints.cs`
+
+**Agent Prompt:**
+```
+Status update requirement for this task:
+- At the START of this task, update IMPLEMENTATION-GUIDE.md and set Task 6 status to Implementing.
+- At the END (after acceptance criteria pass), set Task 6 status to Implemented and Task 7 status to Implementing.
+
+Implement API documentation and discoverability for the Hiveboard REST API.
+
+Read PRD-Hiveboard.md section 5.6 (API Discoverability & Documentation) and section 5.1 (Authentication).
+
+1. Configure OpenAPI + Swagger in Program.cs:
+   - Add the required service registrations for endpoint discovery and OpenAPI generation
+   - Configure Swagger generation for API version "v1"
+   - Define an API key security scheme for the `X-Api-Key` header
+   - Add a global security requirement so protected endpoints are correctly documented
+   - Expose Swagger JSON and Swagger UI in Development environment
+
+2. Document all endpoints created so far (Task 5):
+   - Add tags for endpoint groups (Agents, Admin)
+   - Add summaries and descriptions for each endpoint
+   - Add response metadata (at minimum: success + common error status codes)
+   - Ensure auth expectations are clear in descriptions (Any authenticated, Admin only, etc.)
+
+3. Keep behavior unchanged:
+   - /health and /dashboard/** remain accessible without API key auth
+   - Existing authentication and authorization behavior must continue to work
+
+4. Use a consistent metadata style that future endpoint tasks can follow.
+```
+
+**Acceptance Criteria:**
+- [ ] `dotnet build` succeeds
+- [ ] Swagger JSON is available at `/swagger/v1/swagger.json` in Development
+- [ ] Swagger UI is available at `/swagger` in Development
+- [ ] `X-Api-Key` security scheme appears in the OpenAPI document
+- [ ] All Task 5 endpoints include summary/description and response metadata
+- [ ] Existing auth behavior remains unchanged (`/health` and `/dashboard/**` still public)
+
+---
+
+### Task 7 — Project & Epic CRUD Endpoints
+**Status:** Pending
 
 **Goal:** Implement REST endpoints for managing projects and epics.
 
@@ -421,6 +498,10 @@ Update existing:
 
 **Agent Prompt:**
 ```
+Status update requirement for this task:
+- At the START of this task, update IMPLEMENTATION-GUIDE.md and set Task 7 status to Implementing.
+- At the END (after acceptance criteria pass), set Task 7 status to Implemented and Task 8 status to Implementing.
+
 Implement Project and Epic REST endpoints for the Hiveboard API.
 
 Read PRD-Hiveboard.md sections 5.3 (Projects and Epics endpoints).
@@ -466,7 +547,8 @@ Use the DbContext directly in endpoint handlers (no repository pattern for MVP �
 
 ---
 
-### Task 7 — Task CRUD & Assignment Endpoints
+### Task 8 — Task CRUD & Assignment Endpoints
+**Status:** Pending
 
 **Goal:** Implement task management endpoints including creation, retrieval, assignment, and listing with filters.
 
@@ -483,6 +565,10 @@ Update existing:
 
 **Agent Prompt:**
 ```
+Status update requirement for this task:
+- At the START of this task, update IMPLEMENTATION-GUIDE.md and set Task 8 status to Implementing.
+- At the END (after acceptance criteria pass), set Task 8 status to Implemented and Task 9 status to Implementing.
+
 Implement Task CRUD and assignment endpoints for the Hiveboard API.
 
 Read PRD-Hiveboard.md sections 4.2 (Task entity), 5.3 (Task endpoints), and 5.5 (Full Task Context Response).
@@ -538,7 +624,8 @@ Read PRD-Hiveboard.md sections 4.2 (Task entity), 5.3 (Task endpoints), and 5.5 
 
 ---
 
-### Task 8 — Task State Machine
+### Task 9 — Task State Machine
+**Status:** Pending
 
 **Goal:** Implement the task status transition endpoint with all business rules from the PRD.
 
@@ -553,6 +640,10 @@ Update existing:
 
 **Agent Prompt:**
 ```
+Status update requirement for this task:
+- At the START of this task, update IMPLEMENTATION-GUIDE.md and set Task 9 status to Implementing.
+- At the END (after acceptance criteria pass), set Task 9 status to Implemented and Task 10 status to Implementing.
+
 Implement the task state machine for the Hiveboard API.
 
 Read PRD-Hiveboard.md section 6 (Task Workflow) very carefully — the state transition table and rules.
@@ -604,7 +695,8 @@ Read PRD-Hiveboard.md section 6 (Task Workflow) very carefully — the state tra
 
 ---
 
-### Task 9 — Dependency Management
+### Task 10 — Dependency Management
+**Status:** Pending
 
 **Goal:** Implement task dependency CRUD with circular dependency detection.
 
@@ -620,6 +712,10 @@ Update existing:
 
 **Agent Prompt:**
 ```
+Status update requirement for this task:
+- At the START of this task, update IMPLEMENTATION-GUIDE.md and set Task 10 status to Implementing.
+- At the END (after acceptance criteria pass), set Task 10 status to Implemented and Task 11 status to Implementing.
+
 Implement task dependency management for the Hiveboard API.
 
 Read PRD-Hiveboard.md sections 4.2 (TaskDependency), 5.3 (Dependency endpoints), and 5.5 (Dependency Enforcement).
@@ -671,7 +767,8 @@ Read PRD-Hiveboard.md sections 4.2 (TaskDependency), 5.3 (Dependency endpoints),
 
 ---
 
-### Task 10 — Task Decomposition
+### Task 11 — Task Decomposition
+**Status:** Pending
 
 **Goal:** Implement the task decomposition endpoint where an agent breaks a task into subtasks.
 
@@ -685,6 +782,10 @@ Update existing:
 
 **Agent Prompt:**
 ```
+Status update requirement for this task:
+- At the START of this task, update IMPLEMENTATION-GUIDE.md and set Task 11 status to Implementing.
+- At the END (after acceptance criteria pass), set Task 11 status to Implemented and Task 12 status to Implementing.
+
 Implement task decomposition for the Hiveboard API.
 
 Read PRD-Hiveboard.md sections 5.3 (POST /tasks/{id}/subtasks) and 6.3 (Task Decomposition).
@@ -708,7 +809,7 @@ Read PRD-Hiveboard.md sections 5.3 (POST /tasks/{id}/subtasks) and 6.3 (Task Dec
      message: "Task '{title}' was decomposed into {n} subtasks by {agent_name}")
 
 3. The parent task should NOT be completable directly once it has subtasks.
-   It auto-completes when all subtasks reach "done" (this logic is in Task 8's state machine).
+   It auto-completes when all subtasks reach "done" (this logic is in Task 9's state machine).
 
 4. Return the created subtasks with their IDs and status.
 
@@ -729,7 +830,8 @@ Read PRD-Hiveboard.md sections 5.3 (POST /tasks/{id}/subtasks) and 6.3 (Task Dec
 
 ---
 
-### Task 11 — Notes & Decision Records Endpoints
+### Task 12 — Notes & Decision Records Endpoints
+**Status:** Pending
 
 **Goal:** Implement task notes and project-level decision record endpoints.
 
@@ -747,6 +849,10 @@ Update existing:
 
 **Agent Prompt:**
 ```
+Status update requirement for this task:
+- At the START of this task, update IMPLEMENTATION-GUIDE.md and set Task 12 status to Implementing.
+- At the END (after acceptance criteria pass), set Task 12 status to Implemented and Task 13 status to Implementing.
+
 Implement Notes and Decision Records endpoints for the Hiveboard API.
 
 Read PRD-Hiveboard.md sections 4.2 (TaskNote, DecisionRecord) and 5.3 (Notes, Decision endpoints).
@@ -791,7 +897,8 @@ Read PRD-Hiveboard.md sections 4.2 (TaskNote, DecisionRecord) and 5.3 (Notes, De
 
 ## Phase 3: Intelligence
 
-### Task 12 — Notification Engine
+### Task 13 — Notification Engine
+**Status:** Pending
 
 **Goal:** Implement the notification polling endpoint and ensure all notification triggers from previous tasks are working correctly.
 
@@ -809,6 +916,10 @@ Update existing (refactor notification creation to use the new service):
 
 **Agent Prompt:**
 ```
+Status update requirement for this task:
+- At the START of this task, update IMPLEMENTATION-GUIDE.md and set Task 13 status to Implementing.
+- At the END (after acceptance criteria pass), set Task 13 status to Implemented and Task 14 status to Implementing.
+
 Implement the notification system for the Hiveboard API.
 
 Read PRD-Hiveboard.md section 7 (Notification System).
@@ -819,7 +930,7 @@ Read PRD-Hiveboard.md section 7 (Notification System).
    - Method: Acknowledge(Guid notificationId, Guid agentId) → bool
    - Register as scoped service
 
-2. Refactor all existing notification creation in Tasks 7, 8, 10 to use this service
+2. Refactor all existing notification creation in Tasks 8, 9, 11 to use this service
    instead of creating Notification entities directly. Search the codebase for any place
    a Notification is created and route it through NotificationService.
 
@@ -861,7 +972,8 @@ Read PRD-Hiveboard.md section 7 (Notification System).
 
 ---
 
-### Task 13 — Full Task Context Assembly
+### Task 14 — Full Task Context Assembly
+**Status:** Pending
 
 **Goal:** Ensure the GET /tasks/{id} endpoint returns the complete, rich context bundle that agents need.
 
@@ -876,6 +988,10 @@ Update existing:
 
 **Agent Prompt:**
 ```
+Status update requirement for this task:
+- At the START of this task, update IMPLEMENTATION-GUIDE.md and set Task 14 status to Implementing.
+- At the END (after acceptance criteria pass), set Task 14 status to Implemented and Task 15 status to Implementing.
+
 Implement the full task context assembly for GET /api/v1/tasks/{id}.
 
 Read PRD-Hiveboard.md section 5.5 (Key API Behaviors — Full Task Context Response).
@@ -920,7 +1036,8 @@ their assigned work. The response must include EVERYTHING an agent needs.
 
 ## Phase 4: MCP + Dashboard
 
-### Task 14 — MCP Server Interface
+### Task 15 — MCP Server Interface
+**Status:** Pending
 
 **Goal:** Expose Hiveboard functionality via MCP (Model Context Protocol) so agents like Claude Code, Copilot, and Cursor can integrate with zero custom code.
 
@@ -937,9 +1054,13 @@ Update existing:
 
 **Agent Prompt:**
 ```
+Status update requirement for this task:
+- At the START of this task, update IMPLEMENTATION-GUIDE.md and set Task 15 status to Implementing.
+- At the END (after acceptance criteria pass), set Task 15 status to Implemented and Task 16 status to Implementing.
+
 Implement an MCP (Model Context Protocol) server interface for Hiveboard.
 
-Read PRD-Hiveboard.md section 5.4 (MCP Server Interface).
+Read PRD-Hiveboard.md sections 5.4 (MCP Server Interface) and 5.7 (MCP Discoverability & Contract Stability).
 
 Use the official .NET MCP SDK NuGet package (ModelContextProtocol or the official Microsoft/Anthropic package — 
 check NuGet for the latest). If no stable .NET MCP SDK exists, implement a minimal MCP server 
@@ -972,6 +1093,18 @@ using the MCP specification over stdio or SSE transport.
 
 5. Create an mcp-config.json example showing how to configure Hiveboard as an MCP server
    in Claude Code, Copilot, and Cursor settings.
+
+6. MCP contract quality requirements:
+   - Ensure `list_tools` exposes all tools with stable names, clear descriptions, and input schemas
+   - Ensure `list_resources` exposes all resources with URI patterns and descriptions
+   - Keep tool/resource names exactly as defined in the PRD (no renames in patch changes)
+   - Return structured MCP errors (machine-readable code + message) for validation failures,
+     unauthorized access, not found entities, and conflict/business-rule violations
+
+7. Add a small local verification note in comments/README for how to smoke-test:
+   - Connect with an MCP inspector/client
+   - Run `list_tools` and `list_resources`
+   - Invoke at least one successful tool call and one invalid-input call
 ```
 
 **Acceptance Criteria:**
@@ -979,11 +1112,16 @@ using the MCP specification over stdio or SSE transport.
 - [ ] All 9 tools are listed when an MCP client connects
 - [ ] All 3 resources are accessible
 - [ ] Tool calls work correctly and return proper results
+- [ ] `list_tools` metadata includes descriptions and input schema for each tool
+- [ ] `list_resources` metadata includes descriptions for each resource
+- [ ] Invalid tool input returns structured MCP validation errors
+- [ ] Unauthorized MCP requests return structured auth errors
 - [ ] Example MCP config file is provided for agent setup
 
 ---
 
-### Task 15 — Dashboard (React SPA)
+### Task 16 — Dashboard (React SPA)
+**Status:** Pending
 
 **Goal:** Implement a React dashboard for human oversight of agent activity, plus an Admin Panel for key management.
 
@@ -1004,6 +1142,10 @@ Update existing:
 
 **Agent Prompt:**
 ```
+Status update requirement for this task:
+- At the START of this task, update IMPLEMENTATION-GUIDE.md and set Task 16 status to Implementing.
+- At the END (after acceptance criteria pass), set Task 16 status to Implemented and Task 17 status to Implementing.
+
 Implement the React dashboard for Hiveboard.
 
 Read PRD-Hiveboard.md section 8 (Dashboard).
@@ -1092,7 +1234,8 @@ The built output gets copied to src/Hiveboard.Api/wwwroot/dashboard/.
 
 ## Phase 5: Polish
 
-### Task 16 — Logging, Health Checks, Error Handling
+### Task 17 — Logging, Health Checks, Error Handling
+**Status:** Pending
 
 **Goal:** Add structured logging, comprehensive health checks, and consistent error responses.
 
@@ -1107,6 +1250,10 @@ Update existing:
 
 **Agent Prompt:**
 ```
+Status update requirement for this task:
+- At the START of this task, update IMPLEMENTATION-GUIDE.md and set Task 17 status to Implementing.
+- At the END (after acceptance criteria pass), set Task 17 status to Implemented and Task 18 status to Implementing.
+
 Add production-readiness features to the Hiveboard API.
 
 Read PRD-Hiveboard.md section 10 (Non-Functional Requirements).
@@ -1159,7 +1306,8 @@ Read PRD-Hiveboard.md section 10 (Non-Functional Requirements).
 
 ---
 
-### Task 17 — PostgreSQL Support & Integration Tests
+### Task 18 — PostgreSQL Support & Integration Tests
+**Status:** Pending
 
 **Goal:** Verify PostgreSQL works as an alternative provider, and add integration tests for critical paths.
 
@@ -1176,6 +1324,10 @@ Update existing (if needed):
 
 **Agent Prompt:**
 ```
+Status update requirement for this task:
+- At the START of this task, update IMPLEMENTATION-GUIDE.md and set Task 18 status to Implementing.
+- At the END (after acceptance criteria pass), set Task 18 status to Implemented.
+
 Add integration tests and verify PostgreSQL support for Hiveboard.
 
 1. Test Infrastructure (TestFixture.cs):
@@ -1245,13 +1397,15 @@ Add integration tests and verify PostgreSQL support for Hiveboard.
 
 ## Post-Implementation Checklist
 
-After all 17 tasks are complete, verify end-to-end:
+After all 18 tasks are complete, verify end-to-end:
 
 - [ ] `dotnet build Hiveboard.sln` — clean build, no warnings
 - [ ] `dotnet test` — all tests pass
 - [ ] Start the API, run the seeder, verify dashboard loads
 - [ ] Use curl/Postman to walk through the full orchestrator + worker workflow from Appendix A of the PRD
+- [ ] Open `/swagger` in Development and verify all REST endpoints are documented with `X-Api-Key` security
 - [ ] Connect an MCP client and verify tool discovery
+- [ ] Verify MCP tool/resource metadata quality (`list_tools`/`list_resources`) and structured error behavior
 - [ ] Switch to PostgreSQL config, run migrations, verify it works
 - [ ] Review logs — structured, no secrets leaked
 
