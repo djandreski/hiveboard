@@ -21,13 +21,23 @@ This repository is a .NET 10 + React monorepo for Hiveboard. Use this file as th
 - Inspect existing code and docs before editing.
 - Keep changes scoped to the requested task; do not overwrite unrelated user work.
 - Prefer the existing structure and naming conventions already used in the repo.
-- Add or update tests when behavior changes.
+- Always add tests for new functionality.
+- When fixing bugs, always run the existing relevant tests (and add a regression test when behavior changes).
 - If you touch the dashboard, keep frontend changes aligned with the existing Vite/React setup.
 
 ## Validation
 
 - Run `dotnet restore Hiveboard.sln`, `dotnet build Hiveboard.sln`, and `dotnet test Hiveboard.sln` for backend changes.
 - Run the appropriate `npm` commands in `src/Hiveboard.Dashboard` when frontend files change.
+
+### Sandbox Notes (Codex Desktop)
+
+- In this sandbox, `dotnet test Hiveboard.sln` can fail without surfacing useful errors.
+- Use this backend validation sequence instead:
+  - `dotnet restore Hiveboard.sln`
+  - `dotnet build Hiveboard.sln -p:BuildDashboardAssets=false`
+  - `dotnet test tests/Hiveboard.Tests/Hiveboard.Tests.csproj --no-restore -p:UseSandboxBuildWorkaround=true -p:BuildDashboardAssets=false`
+- `UseSandboxBuildWorkaround=true` is required for stable test resolution in this environment.
 
 ## Reporting
 

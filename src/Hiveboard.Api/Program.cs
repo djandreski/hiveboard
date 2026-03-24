@@ -130,3 +130,7 @@ app.MapProjectEndpoints();
 app.MapEpicEndpoints();
 
 app.Run();
+
+public partial class Program
+{
+}

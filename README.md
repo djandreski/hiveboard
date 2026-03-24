@@ -174,5 +174,5 @@ PostgreSQL provider:
 
 I am documenting daily wins, architecture decisions, and agent failure modes on:
 
-- X/Twitter: [add your profile link](https://x.com/your-handle)
-- LinkedIn: [add your profile link](https://www.linkedin.com/in/your-profile)
+- X/Twitter: [https://x.com/djandreski](https://x.com/djandreski)
+- LinkedIn: [https://www.linkedin.com/in/djandreski/](https://www.linkedin.com/in/djandreski/)

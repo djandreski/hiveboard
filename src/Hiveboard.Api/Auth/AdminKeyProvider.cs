@@ -73,8 +73,10 @@ public class AdminKeyProvider
 
         await _db.SaveChangesAsync();
 
-        _logger.LogWarning("Admin API Key: {AdminKey} (save this, it won't be shown again)", plaintext);
-        Console.WriteLine($"\n  Admin API Key: {plaintext}\n  (save this, it won't be shown again)\n");
+        _logger.LogWarning(
+            "Admin API Key auto-generated for bootstrap (prefix: {Prefix}). Plaintext is not emitted to logs/stdout. " +
+            "Set HIVEBOARD_ADMIN_KEY and restart to override with a known key.",
+            newPrefix);
     }
 
     public async Task<bool> ValidateAdminKeyAsync(string key)

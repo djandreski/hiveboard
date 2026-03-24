@@ -23,10 +23,33 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(UseSandboxBuildWorkaround)' != 'true'">
     <ProjectReference Include="..\..\src\Hiveboard.Api\Hiveboard.Api.csproj" />
     <ProjectReference Include="..\..\src\Hiveboard.Core\Hiveboard.Core.csproj" />
     <ProjectReference Include="..\..\src\Hiveboard.Infrastructure\Hiveboard.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseSandboxBuildWorkaround)' == 'true'">
+    <Reference Include="Hiveboard.Api">
+      <HintPath>..\..\src\Hiveboard.Api\bin\Sandbox\$(Configuration)\net10.0\Hiveboard.Api.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Hiveboard.Core">
+      <HintPath>..\..\src\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Hiveboard.Infrastructure">
+      <HintPath>..\..\src\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <None Include="..\..\src\Hiveboard.Api\bin\Sandbox\$(Configuration)\net10.0\Hiveboard.Api.deps.json">
+      <Link>Hiveboard.Api.deps.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\src\Hiveboard.Api\bin\Sandbox\$(Configuration)\net10.0\Hiveboard.Api.runtimeconfig.json">
+      <Link>Hiveboard.Api.runtimeconfig.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
