@@ -79,5 +79,29 @@ public class TenantScopingIntegrationTests
         Assert.Equal(HttpStatusCode.Forbidden, foreignEpicResponse.StatusCode);
     }
 
+    [Fact]
+    public async Task AdminKey_IsRejectedByOrganizationScopedProjectAndEpicEndpoints()
+    {
+        await using var app = new HiveboardApiFactory();
+        using var adminClient = app.CreateAuthenticatedClient(app.AdminApiKey);
+
+        var projectsResponse = await adminClient.GetAsync("/api/v1/projects");
+        var createProjectResponse = await adminClient.PostAsJsonAsync(
+            "/api/v1/projects",
+            new CreateProjectRequest("Admin Project", "Should not be allowed"));
+        var projectEpicsResponse = await adminClient.GetAsync($"/api/v1/projects/{Guid.NewGuid()}/epics");
+        var epicDetailsResponse = await adminClient.GetAsync($"/api/v1/epics/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.Forbidden, projectsResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, createProjectResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, projectEpicsResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, epicDetailsResponse.StatusCode);
+
+        var error = await projectsResponse.Content.ReadFromJsonAsync<ErrorResponse>();
+        Assert.NotNull(error);
+        Assert.Equal("Organization-scoped endpoints require an agent API key", error.error);
+    }
+
     private sealed record AgentSummary(Guid Id, string Name, string Type, string Platform, string Status);
+    private sealed record ErrorResponse(string error);
 }
