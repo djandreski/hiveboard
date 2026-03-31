@@ -14,6 +14,7 @@ public static class HiveboardApplicationServiceCollectionExtensions
         services.AddScoped<AgentApplicationService>();
         services.AddScoped<ProjectApplicationService>();
         services.AddScoped<EpicApplicationService>();
+        services.AddScoped<TaskApplicationService>();
 
         return services;
     }

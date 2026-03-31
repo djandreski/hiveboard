@@ -533,7 +533,7 @@ Use ASP.NET Core Minimal APIs with endpoint groups. Create static classes with e
 
 5. Wire up in Program.cs using the extension methods.
 
-Use the DbContext directly in endpoint handlers (no repository pattern for MVP — keep it simple).
+Keep endpoint handlers thin and delegate to application services; application services may use DbContext directly (no repository pattern for MVP).
 ```
 
 **Acceptance Criteria:**
@@ -548,7 +548,7 @@ Use the DbContext directly in endpoint handlers (no repository pattern for MVP �
 ---
 
 ### Task 8 — Task CRUD & Assignment Endpoints
-**Status:** Implementing
+**Status:** Implemented
 
 **Goal:** Implement task management endpoints including creation, retrieval, assignment, and listing with filters.
 
@@ -614,18 +614,18 @@ Read PRD-Hiveboard.md sections 4.2 (Task entity), 5.3 (Task endpoints), and 5.5 
 ```
 
 **Acceptance Criteria:**
-- [ ] Can create tasks under a project (orchestrator)
-- [ ] Can list tasks with status/agent/epic filters
-- [ ] GET /tasks/{id} returns full nested context (dependencies, notes, events, decisions)
-- [ ] Assignment works — sets agent and transitions to "assigned"
-- [ ] 409 if task already assigned to different agent
-- [ ] TaskEvent is recorded on assignment
-- [ ] Notification is created for assigned agent
+- [x] Can create tasks under a project (orchestrator)
+- [x] Can list tasks with status/agent/epic filters
+- [x] GET /tasks/{id} returns full nested context (dependencies, notes, events, decisions)
+- [x] Assignment works — sets agent and transitions to "assigned"
+- [x] 409 if task already assigned to different agent
+- [x] TaskEvent is recorded on assignment
+- [x] Notification is created for assigned agent
 
 ---
 
 ### Task 9 — Task State Machine
-**Status:** Pending
+**Status:** Implementing
 
 **Goal:** Implement the task status transition endpoint with all business rules from the PRD.
 

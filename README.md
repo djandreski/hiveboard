@@ -20,7 +20,7 @@ I am building Hiveboard in public with an **18-step Agentic Implementation Guide
 
 My role is to define architecture, constraints, and acceptance criteria. AI coding agents execute the tasks. I review the output, push the standard up, and iterate.
 
-**Current Progress: 39% Complete**
+**Current Progress: 44% Complete**
 
 - [x] **Task 1:** Project initialization and clean architecture
 - [x] **Task 2:** Domain model (tasks, epics, agents)
@@ -29,8 +29,9 @@ My role is to define architecture, constraints, and acceptance criteria. AI codi
 - [x] **Task 5:** Authentication and agent registration
 - [x] **Task 6:** OpenAPI documentation and Swagger explorer
 - [x] **Task 7:** Project and Epic CRUD endpoints
-- [ ] **Task 8:** Task CRUD and assignment endpoints <- **WE ARE HERE**
-- [ ] **Task 9-18:** Remaining API, orchestration, MCP, dashboard, and polish tasks
+- [x] **Task 8:** Task CRUD and assignment endpoints
+- [ ] **Task 9:** Task state machine <- **WE ARE HERE**
+- [ ] **Task 10-18:** Remaining API, orchestration, MCP, dashboard, and polish tasks
 
 See the full execution checklist in [IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md).
 

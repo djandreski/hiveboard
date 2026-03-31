@@ -129,6 +129,15 @@ internal sealed class HiveboardApiFactory : WebApplicationFactory<Program>
         if (!await db.Organizations.AnyAsync())
             return;
 
+        db.Notifications.RemoveRange(db.Notifications);
+        db.TaskEvents.RemoveRange(db.TaskEvents);
+        db.TaskNotes.RemoveRange(db.TaskNotes);
+        db.TaskDependencies.RemoveRange(db.TaskDependencies);
+        db.DecisionRecords.RemoveRange(db.DecisionRecords);
+        db.AgentTasks.RemoveRange(db.AgentTasks);
+        db.Epics.RemoveRange(db.Epics);
+        db.Projects.RemoveRange(db.Projects);
+        db.Agents.RemoveRange(db.Agents);
         db.Organizations.RemoveRange(db.Organizations);
         await db.SaveChangesAsync();
     }

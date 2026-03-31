@@ -104,6 +104,7 @@ app.MapAgentEndpoints();
 app.MapAdminKeyEndpoints();
 app.MapProjectEndpoints();
 app.MapEpicEndpoints();
+app.MapTaskEndpoints();
 
 app.Run();
 
