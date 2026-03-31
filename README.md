@@ -1,8 +1,8 @@
 <div align="center">
 
-# 🐝 Hiveboard: The Headless PM for AI Agents
+# 🐝 Hiveboard: The Coordination Layer for AI Agents
 
-**I am building a coordination layer in .NET for the age of machine-to-machine collaboration.**
+**I am building a coordination layer in .NET for human-supervised, multi-agent software development.**
 
 <p>
   <a href="https://dotnet.microsoft.com/"><img src="https://img.shields.io/badge/.NET-10.0-512BD4?style=for-the-badge&amp;logo=dotnet&amp;logoColor=white" alt=".NET version" /></a>
@@ -31,21 +31,21 @@ My role is to define architecture, constraints, and acceptance criteria. AI codi
 - [x] **Task 7:** Project and Epic CRUD endpoints
 - [x] **Task 8:** Task CRUD and assignment endpoints
 - [ ] **Task 9:** Task state machine <- **WE ARE HERE**
-- [ ] **Task 10-18:** Remaining API, orchestration, MCP, dashboard, and polish tasks
+- [ ] **Task 10-18:** Remaining API, coordination, MCP, dashboard, and polish tasks
 
 See the full execution checklist in [IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md).
 
 ## 🚀 The Vision
 
-I started Hiveboard because I kept forcing AI agents through human-first PM tools. It was noisy, fragile, and full of UI overhead that agents do not need.
+I started Hiveboard because I kept forcing AI agents through human-first PM tools. It was noisy, fragile, and full of UI overhead that agents do not need, but I also learned that taking humans completely out of the loop is the wrong starting point.
 
-Traditional tools like Jira, Linear, and Trello are excellent for people. Agentic coding workflows need different primitives.
+Traditional tools like Jira, Linear, and Trello are excellent for people. Agentic coding workflows need different primitives, but humans still need direct control over decomposition, assignment, review, and blocker resolution.
 
-Hiveboard is my answer: a structured, API-first environment where agents can:
+Hiveboard is my answer: a structured, API-first environment where humans coordinate and agents execute against shared state:
 
 - **Sequence dependencies:** Ensure Agent B does not start until Agent A finishes
 - **Share context:** Record architectural decisions in queryable decision logs
-- **Manage state:** Maintain a persistent source of truth for agentic sprints
+- **Stay in control:** Let humans intervene quickly when plans, assignments, or blockers need correction
 
 ## 🛠 The .NET Advantage
 
@@ -53,7 +53,7 @@ I chose **C# and .NET 10** on purpose.
 
 The AI tooling world is crowded with Python-first products, but I wanted a stack that is predictable under pressure and ready for real production environments.
 
-- **Type safety:** Strict contracts for agent-to-agent communication
+- **Type safety:** Strict contracts for human-to-agent and agent-to-agent coordination
 - **Performance:** High-concurrency processing for orchestration-heavy workloads
 - **Enterprise readiness:** Clean architecture, EF Core, and a dual-provider strategy (SQLite/PostgreSQL)
 
@@ -63,7 +63,7 @@ Hiveboard is my working case study in **agentic software development**.
 
 Every implementation task is executed by an AI coding agent following prompts from [IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md) and behavior requirements from [PRD-Hiveboard.md](PRD-Hiveboard.md).
 
-This repo is not just code; it is an operating model for how I build with agents.
+This repo is not just code; it is an operating model for how I build with agents. The MVP validates structured multi-agent coordination with humans in control first; autonomous orchestration comes later.
 
 > **Insight from Task 4:** .NET migrations are a major advantage in agent workflows. They create an explicit, machine-readable history of schema changes that agents can safely extend with less relationship drift.
 
@@ -76,11 +76,12 @@ From the PRD, the first Hiveboard release includes:
 - Task state machine: Backlog -> Assigned -> InProgress -> InReview -> Done / Blocked
 - Circular dependency detection and dependency-aware execution gating
 - Full task context endpoint for worker execution
-- Polling notifications for orchestrators and workers
+- Polling notifications for coordinators and workers
 - OpenAPI specification + Swagger UI for REST discoverability
 - MCP server interface for zero-custom integration with agent platforms
 - MCP discovery with stable tool/resource contracts and structured errors
-- Read-only React dashboard for human oversight
+- Human control plane for oversight, task coordination, review, and blocker resolution
+- Optional co-orchestrator agent support on top of the same API
 - SQLite (default) and PostgreSQL provider support
 
 ## 🧱 Architecture
@@ -90,12 +91,13 @@ I am keeping Hiveboard intentionally clean and layered from day one:
 - **Hiveboard.Api:** ASP.NET Core Minimal API host
 - **Hiveboard.Core:** Domain entities, enums, and core business rules
 - **Hiveboard.Infrastructure:** EF Core persistence and provider-specific setup
-- **Hiveboard.Dashboard:** React + TypeScript + Vite SPA (served as static files)
+- **Hiveboard.Dashboard:** React + TypeScript + Vite frontend app, developed independently and optionally bundled with the API for self-hosted deployments
 - **Hiveboard.Tests:** Unit and integration tests
 
-Tenant model:
+Coordination model:
 
-- Organization -> Projects -> Agents (Orchestrator/Worker)
+- Organization -> Projects -> Agents (Worker + optional Orchestrator)
+- Human coordinators operate through the dashboard/API
 - Agent API keys are organization-scoped
 
 ## 🚦 Quick Start
@@ -110,8 +112,16 @@ Tenant model:
 
 ```bash
 dotnet restore Hiveboard.sln
-dotnet build Hiveboard.sln
-dotnet test Hiveboard.sln
+dotnet build Hiveboard.sln -p:BuildDashboardAssets=false
+dotnet test Hiveboard.sln -p:BuildDashboardAssets=false
+```
+
+### Build the Dashboard
+
+```bash
+cd src/Hiveboard.Dashboard
+npm install
+npm run build
 ```
 
 ### Run the API (Automated Migrations + Seeding)
@@ -120,10 +130,18 @@ dotnet test Hiveboard.sln
 dotnet run --project src/Hiveboard.Api/Hiveboard.Api.csproj
 ```
 
+### Run the Dashboard in Development
+
+```bash
+cd src/Hiveboard.Dashboard
+npm run dev
+```
+
 Target runtime endpoints:
 
 - API: http://localhost:5000
-- Dashboard: http://localhost:5000/dashboard
+- Dashboard (bundled): http://localhost:5000/dashboard
+- Dashboard (dev): http://localhost:5173
 - Health: http://localhost:5000/health
 
 ## ⚙ Configuration
