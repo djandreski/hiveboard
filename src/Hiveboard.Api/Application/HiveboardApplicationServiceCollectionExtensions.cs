@@ -11,6 +11,7 @@ public static class HiveboardApplicationServiceCollectionExtensions
         services.AddScoped(static serviceProvider => serviceProvider.GetRequiredService<IAgentContextAccessor>().Current);
 
         services.AddScoped<IAgentAccessGuard, AgentAccessGuard>();
+        services.AddScoped<ICoordinatorScopeResolver, CoordinatorScopeResolver>();
         services.AddScoped<AgentApplicationService>();
         services.AddScoped<ProjectApplicationService>();
         services.AddScoped<EpicApplicationService>();

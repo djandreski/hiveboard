@@ -80,9 +80,14 @@ public class TenantScopingIntegrationTests
     }
 
     [Fact]
-    public async Task AdminKey_IsRejectedByOrganizationScopedProjectAndEpicEndpoints()
+    public async Task CoordinatorCredential_RequiresResolvableOrganizationScope_WhenNoDefaultOrganizationExists()
     {
         await using var app = new HiveboardApiFactory();
+        var orgA = IntegrationTestData.CreateOrganization("Org A");
+        var orgB = IntegrationTestData.CreateOrganization("Org B");
+
+        await app.SeedAsync(db => db.Organizations.AddRange(orgA, orgB));
+
         using var adminClient = app.CreateAuthenticatedClient(app.AdminApiKey);
 
         var projectsResponse = await adminClient.GetAsync("/api/v1/projects");
@@ -99,7 +104,9 @@ public class TenantScopingIntegrationTests
 
         var error = await projectsResponse.Content.ReadFromJsonAsync<ErrorResponse>();
         Assert.NotNull(error);
-        Assert.Equal("Organization-scoped endpoints require an agent API key", error.error);
+        Assert.Equal(
+            "Coordinator credential could not be mapped to an organization. Self-hosted MVP requires exactly one organization or one named 'Default Organization'.",
+            error.error);
     }
 
     private sealed record AgentSummary(Guid Id, string Name, string Type, string Platform, string Status);

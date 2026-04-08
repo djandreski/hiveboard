@@ -631,7 +631,7 @@ Read PRD-Hiveboard.md sections 4.2 (Task entity), 5.3 (Task endpoints), and 5.5 
 ---
 
 ### Task 9 — Coordinator-First MVP Realignment
-**Status:** Implementing
+**Status:** Implemented
 
 **Goal:** Retrofit the code from Tasks 1–8 to the new coordinator-first MVP without removing optional co-orchestrator support.
 
@@ -745,7 +745,7 @@ Important framing:
 ---
 
 ### Task 10 — Task State Machine
-**Status:** Pending
+**Status:** Implementing
 
 **Goal:** Implement the task status transition endpoint with coordinator-first rules while preserving optional co-orchestrator compatibility.
 

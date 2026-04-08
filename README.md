@@ -16,11 +16,11 @@
 
 ## 🏗 Building in Public: The Roadmap
 
-I am building Hiveboard in public with an **18-step Agentic Implementation Guide**.
+I am building Hiveboard in public with a **19-step Agentic Implementation Guide**.
 
 My role is to define architecture, constraints, and acceptance criteria. AI coding agents execute the tasks. I review the output, push the standard up, and iterate.
 
-**Current Progress: 44% Complete**
+**Current Progress: 47% Complete (9 of 19 tasks)**
 
 - [x] **Task 1:** Project initialization and clean architecture
 - [x] **Task 2:** Domain model (tasks, epics, agents)
@@ -30,8 +30,15 @@ My role is to define architecture, constraints, and acceptance criteria. AI codi
 - [x] **Task 6:** OpenAPI documentation and Swagger explorer
 - [x] **Task 7:** Project and Epic CRUD endpoints
 - [x] **Task 8:** Task CRUD and assignment endpoints
-- [ ] **Task 9:** Task state machine <- **WE ARE HERE**
-- [ ] **Task 10-18:** Remaining API, coordination, MCP, dashboard, and polish tasks
+- [x] **Task 9:** Coordinator-first MVP realignment
+- [ ] **Task 10:** Task state machine <- **WE ARE HERE**
+- [ ] **Task 11-19:** Remaining API, coordination, MCP, dashboard, and polish tasks
+
+Recent milestone:
+
+- Hiveboard now runs in the coordinator-first MVP mode by default.
+- The Admin API key acts as the self-hosted coordinator credential for control-plane CRUD.
+- Optional orchestrator agents still work, but they are no longer required for normal project, epic, and task flows.
 
 See the full execution checklist in [IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md).
 

@@ -1,13 +1,26 @@
+using System.Data;
+using System.Data.Common;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
-using Hiveboard.Core.Entities;
 using Hiveboard.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace Hiveboard.Api.Auth;
 
+public sealed record AdminKeyInfo(
+    string KeyPrefix,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? LastUsedAt);
+
 public class AdminKeyProvider
 {
+    private const string SelectAdminKeySql = """
+        SELECT "Id", "KeyHash", "KeyPrefix", "CreatedAt", "LastUsedAt"
+        FROM "AdminKeys"
+        LIMIT 1;
+        """;
+
     private readonly HiveboardDbContext _db;
     private readonly IConfiguration _config;
     private readonly ILogger<AdminKeyProvider> _logger;
@@ -29,31 +42,31 @@ public class AdminKeyProvider
             var hash = HashKey(envKey);
             var prefix = envKey.Length >= 12 ? envKey[..12] : envKey;
 
-            var existing = await _db.AdminKeys.FirstOrDefaultAsync();
+            var existing = await GetStoredAdminKeyAsync();
             if (existing is not null)
             {
-                existing.KeyHash = hash;
-                existing.KeyPrefix = prefix;
-                existing.CreatedAt = DateTimeOffset.UtcNow;
-                existing.LastUsedAt = null;
+                await UpdateAdminKeyAsync(
+                    existing.Id,
+                    hash,
+                    prefix,
+                    DateTimeOffset.UtcNow,
+                    lastUsedAt: null);
             }
             else
             {
-                _db.AdminKeys.Add(new AdminKey
-                {
-                    Id = Guid.NewGuid(),
-                    KeyHash = hash,
-                    KeyPrefix = prefix,
-                    CreatedAt = DateTimeOffset.UtcNow
-                });
+                await InsertAdminKeyAsync(
+                    Guid.NewGuid(),
+                    hash,
+                    prefix,
+                    DateTimeOffset.UtcNow,
+                    lastUsedAt: null);
             }
 
-            await _db.SaveChangesAsync();
             _logger.LogInformation("Admin API Key loaded from environment variable (prefix: {Prefix})", prefix);
             return;
         }
 
-        var adminKey = await _db.AdminKeys.FirstOrDefaultAsync();
+        var adminKey = await GetStoredAdminKeyAsync();
         if (adminKey is not null)
         {
             return; // Already initialized
@@ -63,15 +76,12 @@ public class AdminKeyProvider
         var newHash = HashKey(plaintext);
         var newPrefix = plaintext[..12];
 
-        _db.AdminKeys.Add(new AdminKey
-        {
-            Id = Guid.NewGuid(),
-            KeyHash = newHash,
-            KeyPrefix = newPrefix,
-            CreatedAt = DateTimeOffset.UtcNow
-        });
-
-        await _db.SaveChangesAsync();
+        await InsertAdminKeyAsync(
+            Guid.NewGuid(),
+            newHash,
+            newPrefix,
+            DateTimeOffset.UtcNow,
+            lastUsedAt: null);
 
         _logger.LogWarning(
             "Admin API Key auto-generated for bootstrap (prefix: {Prefix}). Plaintext is not emitted to logs/stdout. " +
@@ -82,7 +92,7 @@ public class AdminKeyProvider
     public async Task<bool> ValidateAdminKeyAsync(string key)
     {
         var hash = HashKey(key);
-        var adminKey = await _db.AdminKeys.FirstOrDefaultAsync();
+        var adminKey = await GetStoredAdminKeyAsync();
         if (adminKey is null) return false;
 
         if (!CryptographicOperations.FixedTimeEquals(
@@ -90,14 +100,16 @@ public class AdminKeyProvider
                 Encoding.UTF8.GetBytes(hash)))
             return false;
 
-        adminKey.LastUsedAt = DateTimeOffset.UtcNow;
-        await _db.SaveChangesAsync();
+        await UpdateLastUsedAtAsync(adminKey.Id, DateTimeOffset.UtcNow);
         return true;
     }
 
-    public async Task<AdminKey?> GetAdminKeyInfoAsync()
+    public async Task<AdminKeyInfo?> GetAdminKeyInfoAsync()
     {
-        return await _db.AdminKeys.FirstOrDefaultAsync();
+        var adminKey = await GetStoredAdminKeyAsync();
+        return adminKey is null
+            ? null
+            : new AdminKeyInfo(adminKey.KeyPrefix, adminKey.CreatedAt, adminKey.LastUsedAt);
     }
 
     public async Task<string> RotateAdminKeyAsync()
@@ -106,26 +118,26 @@ public class AdminKeyProvider
         var hash = HashKey(plaintext);
         var prefix = plaintext[..12];
 
-        var existing = await _db.AdminKeys.FirstOrDefaultAsync();
+        var existing = await GetStoredAdminKeyAsync();
         if (existing is not null)
         {
-            existing.KeyHash = hash;
-            existing.KeyPrefix = prefix;
-            existing.CreatedAt = DateTimeOffset.UtcNow;
-            existing.LastUsedAt = null;
+            await UpdateAdminKeyAsync(
+                existing.Id,
+                hash,
+                prefix,
+                DateTimeOffset.UtcNow,
+                lastUsedAt: null);
         }
         else
         {
-            _db.AdminKeys.Add(new AdminKey
-            {
-                Id = Guid.NewGuid(),
-                KeyHash = hash,
-                KeyPrefix = prefix,
-                CreatedAt = DateTimeOffset.UtcNow
-            });
+            await InsertAdminKeyAsync(
+                Guid.NewGuid(),
+                hash,
+                prefix,
+                DateTimeOffset.UtcNow,
+                lastUsedAt: null);
         }
 
-        await _db.SaveChangesAsync();
         return plaintext;
     }
 
@@ -146,4 +158,124 @@ public class AdminKeyProvider
         var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(key));
         return Convert.ToHexString(hashBytes).ToLowerInvariant();
     }
+
+    private async Task<StoredAdminKey?> GetStoredAdminKeyAsync()
+    {
+        await using var command = await CreateOpenCommandAsync(SelectAdminKeySql);
+        await using var reader = await command.ExecuteReaderAsync();
+
+        if (!await reader.ReadAsync())
+            return null;
+
+        return new StoredAdminKey(
+            ReadGuid(reader, 0),
+            reader.GetString(1),
+            reader.GetString(2),
+            ReadDateTimeOffset(reader, 3),
+            reader.IsDBNull(4) ? null : ReadDateTimeOffset(reader, 4));
+    }
+
+    private async Task InsertAdminKeyAsync(
+        Guid id,
+        string keyHash,
+        string keyPrefix,
+        DateTimeOffset createdAt,
+        DateTimeOffset? lastUsedAt)
+    {
+        await using var command = await CreateOpenCommandAsync("""
+            INSERT INTO "AdminKeys" ("Id", "KeyHash", "KeyPrefix", "CreatedAt", "LastUsedAt")
+            VALUES (@id, @keyHash, @keyPrefix, @createdAt, @lastUsedAt);
+            """);
+        AddParameter(command, "@id", id);
+        AddParameter(command, "@keyHash", keyHash);
+        AddParameter(command, "@keyPrefix", keyPrefix);
+        AddParameter(command, "@createdAt", createdAt);
+        AddParameter(command, "@lastUsedAt", lastUsedAt);
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private async Task UpdateAdminKeyAsync(
+        Guid id,
+        string keyHash,
+        string keyPrefix,
+        DateTimeOffset createdAt,
+        DateTimeOffset? lastUsedAt)
+    {
+        await using var command = await CreateOpenCommandAsync("""
+            UPDATE "AdminKeys"
+            SET "KeyHash" = @keyHash,
+                "KeyPrefix" = @keyPrefix,
+                "CreatedAt" = @createdAt,
+                "LastUsedAt" = @lastUsedAt
+            WHERE "Id" = @id;
+            """);
+        AddParameter(command, "@id", id);
+        AddParameter(command, "@keyHash", keyHash);
+        AddParameter(command, "@keyPrefix", keyPrefix);
+        AddParameter(command, "@createdAt", createdAt);
+        AddParameter(command, "@lastUsedAt", lastUsedAt);
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private async Task UpdateLastUsedAtAsync(Guid id, DateTimeOffset lastUsedAt)
+    {
+        await using var command = await CreateOpenCommandAsync("""
+            UPDATE "AdminKeys"
+            SET "LastUsedAt" = @lastUsedAt
+            WHERE "Id" = @id;
+            """);
+        AddParameter(command, "@id", id);
+        AddParameter(command, "@lastUsedAt", lastUsedAt);
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private async Task<DbCommand> CreateOpenCommandAsync(string sql)
+    {
+        var connection = _db.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open)
+            await connection.OpenAsync();
+
+        var command = connection.CreateCommand();
+        command.CommandText = sql;
+        return command;
+    }
+
+    private static void AddParameter(DbCommand command, string name, object? value)
+    {
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = name;
+        parameter.Value = value ?? DBNull.Value;
+        command.Parameters.Add(parameter);
+    }
+
+    private static Guid ReadGuid(DbDataReader reader, int ordinal)
+    {
+        var value = reader.GetValue(ordinal);
+        return value switch
+        {
+            Guid guid => guid,
+            string text => Guid.Parse(text),
+            byte[] bytes => new Guid(bytes),
+            _ => Guid.Parse(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty)
+        };
+    }
+
+    private static DateTimeOffset ReadDateTimeOffset(DbDataReader reader, int ordinal)
+    {
+        var value = reader.GetValue(ordinal);
+        return value switch
+        {
+            DateTimeOffset dateTimeOffset => dateTimeOffset,
+            DateTime dateTime => new DateTimeOffset(DateTime.SpecifyKind(dateTime, DateTimeKind.Utc)),
+            string text => DateTimeOffset.Parse(text, CultureInfo.InvariantCulture),
+            _ => DateTimeOffset.Parse(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty, CultureInfo.InvariantCulture)
+        };
+    }
+
+    private sealed record StoredAdminKey(
+        Guid Id,
+        string KeyHash,
+        string KeyPrefix,
+        DateTimeOffset CreatedAt,
+        DateTimeOffset? LastUsedAt);
 }

@@ -24,14 +24,14 @@ public static class AgentEndpoints
         group.MapGet("/", ListAgents)
             .WithName("ListAgents")
             .WithSummary("List agents")
-            .WithDescription("Auth: Any authenticated key. Admin sees all organizations; agents see only their organization.")
+            .WithDescription("Auth: Coordinator/admin key or any agent API key. Lists agents for the caller's organization scope.")
             .Produces(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status401Unauthorized);
 
         group.MapGet("/me", GetCurrentAgent)
             .WithName("GetCurrentAgent")
             .WithSummary("Get current agent context")
-            .WithDescription("Auth: Any authenticated key. Returns admin context for admin key, or agent identity and assigned tasks for agent keys.")
+            .WithDescription("Auth: Any authenticated key. Returns coordinator/admin context for the coordinator credential, or agent identity and assigned tasks for agent keys.")
             .Produces(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status404NotFound);

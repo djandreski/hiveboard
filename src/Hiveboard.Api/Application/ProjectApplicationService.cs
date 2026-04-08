@@ -64,11 +64,11 @@ public sealed class ProjectApplicationService
         if (scopeError is not null)
             return scopeError;
 
-        var orchestratorError = _accessGuard.ValidateOrchestratorScope(
+        var coordinatorOrOrchestratorError = _accessGuard.ValidateCoordinatorOrOrchestratorScope(
             _agentContext,
-            "Only orchestrator agents can create projects");
-        if (orchestratorError is not null)
-            return orchestratorError;
+            "Only coordinators or orchestrator agents can create projects");
+        if (coordinatorOrOrchestratorError is not null)
+            return coordinatorOrOrchestratorError;
 
         if (request is null || string.IsNullOrWhiteSpace(request.Name))
             return Results.BadRequest(new { error = "Name is required" });
@@ -84,7 +84,9 @@ public sealed class ProjectApplicationService
         };
 
         _db.Projects.Add(project);
-        _db.Entry(project).Property<Guid?>("OrchestratorAgentId").CurrentValue = _agentContext.AgentId;
+
+        if (_agentContext.IsOrchestrator)
+            _db.Entry(project).Property<Guid?>("OrchestratorAgentId").CurrentValue = _agentContext.AgentId;
 
         await _db.SaveChangesAsync();
 

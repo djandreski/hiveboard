@@ -1,5 +1,6 @@
 using Hiveboard.Api.Auth;
 using Hiveboard.Infrastructure.Data;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -11,7 +12,8 @@ public class AdminKeyProviderTests
     [Fact]
     public async Task EnsureAdminKeyAsync_WhenNoEnvKey_DoesNotLeakPlaintextToLogsOrStdout()
     {
-        await using var db = CreateDbContext();
+        await using var testDatabase = await CreateDbContextAsync();
+        var db = testDatabase.DbContext;
         var logger = new ListLogger<AdminKeyProvider>();
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["HIVEBOARD_ADMIN_KEY"] = string.Empty })
@@ -47,7 +49,8 @@ public class AdminKeyProviderTests
     [Fact]
     public async Task EnsureAdminKeyAsync_WhenEnvKeyProvided_LogsPrefixButNotPlaintext()
     {
-        await using var db = CreateDbContext();
+        await using var testDatabase = await CreateDbContextAsync();
+        var db = testDatabase.DbContext;
         var logger = new ListLogger<AdminKeyProvider>();
         var envKey = "hb_adm_" + new string('a', 64);
         var config = new ConfigurationBuilder()
@@ -67,13 +70,18 @@ public class AdminKeyProviderTests
         Assert.DoesNotContain(envKey, logs, StringComparison.Ordinal);
     }
 
-    private static HiveboardDbContext CreateDbContext()
+    private static async Task<TestDatabase> CreateDbContextAsync()
     {
+        var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+
         var options = new DbContextOptionsBuilder<HiveboardDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .UseSqlite(connection)
             .Options;
 
-        return new HiveboardDbContext(options);
+        var dbContext = new HiveboardDbContext(options);
+        await dbContext.Database.EnsureCreatedAsync();
+        return new TestDatabase(dbContext, connection);
     }
 
     private sealed class ListLogger<T> : ILogger<T>
@@ -104,6 +112,25 @@ public class AdminKeyProviderTests
             public void Dispose()
             {
             }
+        }
+    }
+
+    private sealed class TestDatabase : IAsyncDisposable
+    {
+        public TestDatabase(HiveboardDbContext dbContext, SqliteConnection connection)
+        {
+            DbContext = dbContext;
+            _connection = connection;
+        }
+
+        public HiveboardDbContext DbContext { get; }
+
+        private readonly SqliteConnection _connection;
+
+        public async ValueTask DisposeAsync()
+        {
+            await DbContext.DisposeAsync();
+            await _connection.DisposeAsync();
         }
     }
 }

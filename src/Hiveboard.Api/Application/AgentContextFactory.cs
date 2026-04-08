@@ -8,13 +8,16 @@ public static class AgentContextFactory
 {
     public static AgentContext Create(ClaimsPrincipal? user)
     {
+        var isAdmin = string.Equals(
+            user?.FindFirst("IsAdmin")?.Value,
+            "true",
+            StringComparison.OrdinalIgnoreCase);
+
         var agentContext = new AgentContext
         {
-            IsAdmin = string.Equals(
-                user?.FindFirst("IsAdmin")?.Value,
-                "true",
-                StringComparison.OrdinalIgnoreCase),
-            AgentName = user?.FindFirst("AgentName")?.Value ?? string.Empty
+            IsAdmin = isAdmin,
+            AgentName = user?.FindFirst("AgentName")?.Value ?? (isAdmin ? "Coordinator" : string.Empty),
+            OrganizationScopeError = user?.FindFirst("OrganizationScopeError")?.Value
         };
 
         if (Guid.TryParse(user?.FindFirst("AgentId")?.Value, out var agentId))

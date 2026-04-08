@@ -1,3 +1,4 @@
+using Hiveboard.Api.Application;
 using Hiveboard.Api.Auth;
 using Hiveboard.Core.Entities;
 using Hiveboard.Core.Enums;
@@ -6,6 +7,9 @@ namespace Hiveboard.Tests.Infrastructure;
 
 internal static class IntegrationTestData
 {
+    public static Organization CreateDefaultOrganization() =>
+        CreateOrganization(CoordinatorScopeResolver.DefaultOrganizationName);
+
     public static Organization CreateOrganization(string name)
     {
         return new Organization

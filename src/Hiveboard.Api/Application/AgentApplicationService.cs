@@ -10,13 +10,20 @@ namespace Hiveboard.Api.Application;
 
 public sealed class AgentApplicationService
 {
+    private const string CoordinatorAuditAgentName = "Coordinator";
+
     private readonly HiveboardDbContext _db;
     private readonly AgentContext _agentContext;
+    private readonly IAgentAccessGuard _accessGuard;
 
-    public AgentApplicationService(HiveboardDbContext db, AgentContext agentContext)
+    public AgentApplicationService(
+        HiveboardDbContext db,
+        AgentContext agentContext,
+        IAgentAccessGuard accessGuard)
     {
         _db = db;
         _agentContext = agentContext;
+        _accessGuard = accessGuard;
     }
 
     public async Task<IResult> RegisterAgentAsync(RegisterAgentRequest request)
@@ -61,26 +68,18 @@ public sealed class AgentApplicationService
 
     public async Task<IResult> ListAgentsAsync()
     {
-        if (_agentContext.IsAdmin)
-        {
-            var allAgents = await _db.Agents
-                .Select(agent => new
-                {
-                    agent.Id,
-                    agent.Name,
-                    Type = agent.Type.ToString().ToLowerInvariant(),
-                    Platform = agent.AgentPlatform.ToString().ToLowerInvariant(),
-                    Status = agent.Status.ToString().ToLowerInvariant(),
-                    agent.LastSeenAt,
-                    agent.OrganizationId
-                })
-                .ToListAsync();
-
-            return Results.Ok(allAgents);
-        }
+        var scopeError = _accessGuard.ValidateOrganizationScope(_agentContext);
+        if (scopeError is not null)
+            return scopeError;
 
         var organizationAgents = await _db.Agents
-            .Where(agent => agent.OrganizationId == _agentContext.OrganizationId)
+            .Where(agent =>
+                agent.OrganizationId == _agentContext.OrganizationId &&
+                !(agent.Name == CoordinatorAuditAgentName &&
+                  agent.Type == AgentType.Orchestrator &&
+                  agent.AgentPlatform == AgentPlatform.Custom &&
+                  agent.Status == AgentStatus.Inactive &&
+                  agent.ApiKeyHash == null))
             .Select(agent => new
             {
                 agent.Id,
@@ -97,12 +96,17 @@ public sealed class AgentApplicationService
 
     public async Task<IResult> GetCurrentAgentAsync()
     {
-        if (_agentContext.IsAdmin)
+        if (_agentContext.IsCoordinator)
         {
             return Results.Ok(new
             {
                 IsAdmin = true,
-                Message = "Authenticated as admin. Use agent API keys to access agent-specific endpoints."
+                IsCoordinator = true,
+                OrganizationId = _agentContext.HasOrganizationScope ? (Guid?)_agentContext.OrganizationId : null,
+                _agentContext.OrganizationScopeError,
+                Message = _agentContext.HasOrganizationScope
+                    ? "Authenticated as coordinator/admin."
+                    : "Authenticated as coordinator/admin, but no organization scope could be resolved."
             });
         }
 

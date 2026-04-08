@@ -48,6 +48,8 @@ internal sealed class HiveboardApiFactory : WebApplicationFactory<Program>
         return client;
     }
 
+    public HttpClient CreateCoordinatorClient() => CreateAuthenticatedClient(AdminApiKey);
+
     public async Task SeedAsync(Action<HiveboardDbContext> seed)
     {
         EnsureServerStarted();

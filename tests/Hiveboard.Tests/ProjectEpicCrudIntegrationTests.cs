@@ -3,27 +3,21 @@ using System.Net.Http.Json;
 using Hiveboard.Api.Contracts;
 using Hiveboard.Core.Enums;
 using Hiveboard.Tests.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 
 namespace Hiveboard.Tests;
 
 public class ProjectEpicCrudIntegrationTests
 {
-    private const string OrchestratorApiKey =
-        "hb_sk_project_orchestrator_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string WorkerApiKey =
         "hb_sk_project_worker_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
     [Fact]
-    public async Task ProjectAndEpicEndpoints_RespectRoleRules_AndSupportCreateAndReadFlows()
+    public async Task CoordinatorFirstProjectAndEpicEndpoints_RespectRoleRules_AndSupportCreateAndReadFlows()
     {
         await using var app = new HiveboardApiFactory();
 
-        var organization = IntegrationTestData.CreateOrganization("Projects Org");
-        var orchestrator = IntegrationTestData.CreateAgent(
-            organization.Id,
-            "Project Orchestrator",
-            AgentType.Orchestrator,
-            OrchestratorApiKey);
+        var organization = IntegrationTestData.CreateDefaultOrganization();
         var worker = IntegrationTestData.CreateAgent(
             organization.Id,
             "Project Worker",
@@ -33,13 +27,13 @@ public class ProjectEpicCrudIntegrationTests
         await app.SeedAsync(db =>
         {
             db.Organizations.Add(organization);
-            db.Agents.AddRange(orchestrator, worker);
+            db.Agents.Add(worker);
         });
 
-        using var orchestratorClient = app.CreateAuthenticatedClient(OrchestratorApiKey);
+        using var coordinatorClient = app.CreateCoordinatorClient();
         using var workerClient = app.CreateAuthenticatedClient(WorkerApiKey);
 
-        var createProjectResponse = await orchestratorClient.PostAsJsonAsync(
+        var createProjectResponse = await coordinatorClient.PostAsJsonAsync(
             "/api/v1/projects",
             new CreateProjectRequest("Platform Upgrade", "Upgrade to latest stack"));
         Assert.Equal(HttpStatusCode.Created, createProjectResponse.StatusCode);
@@ -47,6 +41,12 @@ public class ProjectEpicCrudIntegrationTests
         var createdProject = await createProjectResponse.Content.ReadFromJsonAsync<ProjectResponse>();
         Assert.NotNull(createdProject);
         Assert.Equal("Platform Upgrade", createdProject.Name);
+
+        var projectOrchestratorId = await app.QueryAsync(db => db.Projects
+            .Where(project => project.Id == createdProject.Id)
+            .Select(project => EF.Property<Guid?>(project, "OrchestratorAgentId"))
+            .SingleAsync());
+        Assert.Null(projectOrchestratorId);
 
         var workerCreateProjectResponse = await workerClient.PostAsJsonAsync(
             "/api/v1/projects",
@@ -61,7 +61,7 @@ public class ProjectEpicCrudIntegrationTests
         var workerProjectDetails = await workerClient.GetAsync($"/api/v1/projects/{createdProject.Id}");
         Assert.Equal(HttpStatusCode.OK, workerProjectDetails.StatusCode);
 
-        var createEpicResponse = await orchestratorClient.PostAsJsonAsync(
+        var createEpicResponse = await coordinatorClient.PostAsJsonAsync(
             $"/api/v1/projects/{createdProject.Id}/epics",
             new CreateEpicRequest("Authentication Hardening", "Improve auth safeguards"));
         Assert.Equal(HttpStatusCode.Created, createEpicResponse.StatusCode);

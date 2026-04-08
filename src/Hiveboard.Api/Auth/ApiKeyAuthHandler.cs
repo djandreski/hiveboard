@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using Hiveboard.Api.Application;
 using Hiveboard.Core.Enums;
 using Hiveboard.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication;
@@ -12,17 +13,20 @@ public class ApiKeyAuthHandler : AuthenticationHandler<AuthenticationSchemeOptio
 {
     private readonly HiveboardDbContext _db;
     private readonly AdminKeyProvider _adminKeyProvider;
+    private readonly ICoordinatorScopeResolver _coordinatorScopeResolver;
 
     public ApiKeyAuthHandler(
         IOptionsMonitor<AuthenticationSchemeOptions> options,
         ILoggerFactory logger,
         UrlEncoder encoder,
         HiveboardDbContext db,
-        AdminKeyProvider adminKeyProvider)
+        AdminKeyProvider adminKeyProvider,
+        ICoordinatorScopeResolver coordinatorScopeResolver)
         : base(options, logger, encoder)
     {
         _db = db;
         _adminKeyProvider = adminKeyProvider;
+        _coordinatorScopeResolver = coordinatorScopeResolver;
     }
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
@@ -53,10 +57,18 @@ public class ApiKeyAuthHandler : AuthenticationHandler<AuthenticationSchemeOptio
         // Check admin key first
         if (await _adminKeyProvider.ValidateAdminKeyAsync(apiKey))
         {
-            var adminClaims = new[]
+            var coordinatorScope = await _coordinatorScopeResolver.ResolveAsync(Context.RequestAborted);
+            var adminClaims = new List<Claim>
             {
                 new Claim("IsAdmin", "true"),
+                new Claim("AgentName", "Coordinator")
             };
+
+            if (coordinatorScope.OrganizationId.HasValue)
+                adminClaims.Add(new Claim("OrganizationId", coordinatorScope.OrganizationId.Value.ToString()));
+
+            if (!string.IsNullOrWhiteSpace(coordinatorScope.Error))
+                adminClaims.Add(new Claim("OrganizationScopeError", coordinatorScope.Error));
 
             var adminIdentity = new ClaimsIdentity(adminClaims, Scheme.Name);
             var adminPrincipal = new ClaimsPrincipal(adminIdentity);

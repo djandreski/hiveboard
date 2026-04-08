@@ -7,6 +7,8 @@ namespace Hiveboard.Infrastructure.Data;
 
 public static class HiveboardDbSeeder
 {
+    private const string DefaultOrganizationName = "Default Organization";
+
     public static void SeedDevelopmentData(HiveboardDbContext context)
     {
         if (context.Organizations.Any())
@@ -18,30 +20,42 @@ public static class HiveboardDbSeeder
         var organization = new Organization
         {
             Id = Guid.NewGuid(),
-            Name = "Default Org",
+            Name = DefaultOrganizationName,
             CreatedAt = now
         };
 
-        var orchestrator = new Agent
-        {
-            Id = Guid.NewGuid(),
-            OrganizationId = organization.Id,
-            Name = "Orchestrator",
-            Type = AgentType.Orchestrator,
-            AgentPlatform = AgentPlatform.Custom,
-            ApiKeyHash = HashApiKey("dev-orchestrator-key-123"),
-            Status = AgentStatus.Active,
-            CreatedAt = now
-        };
-
-        var worker = new Agent
+        var workerA = new Agent
         {
             Id = Guid.NewGuid(),
             OrganizationId = organization.Id,
             Name = "Worker-1",
             Type = AgentType.Worker,
             AgentPlatform = AgentPlatform.ClaudeCode,
+            ApiKeyHash = HashApiKey("dev-worker-key-123"),
+            Status = AgentStatus.Active,
+            CreatedAt = now
+        };
+
+        var workerB = new Agent
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = organization.Id,
+            Name = "Worker-2",
+            Type = AgentType.Worker,
+            AgentPlatform = AgentPlatform.Codex,
             ApiKeyHash = HashApiKey("dev-worker-key-456"),
+            Status = AgentStatus.Active,
+            CreatedAt = now
+        };
+
+        var optionalOrchestrator = new Agent
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = organization.Id,
+            Name = "Sample Orchestrator",
+            Type = AgentType.Orchestrator,
+            AgentPlatform = AgentPlatform.Custom,
+            ApiKeyHash = HashApiKey("dev-orchestrator-key-789"),
             Status = AgentStatus.Active,
             CreatedAt = now
         };
@@ -51,15 +65,14 @@ public static class HiveboardDbSeeder
             Id = Guid.NewGuid(),
             OrganizationId = organization.Id,
             Name = "Sample Project",
-            Description = "Development seed project",
+            Description = "Coordinator-managed development seed project",
             Status = ProjectStatus.Active,
             CreatedAt = now,
-            OrchestratorAgent = orchestrator,
-            WorkerAgents = { worker }
+            WorkerAgents = { workerA, workerB }
         };
 
         context.Organizations.Add(organization);
-        context.Agents.AddRange(orchestrator, worker);
+        context.Agents.AddRange(workerA, workerB, optionalOrchestrator);
         context.Projects.Add(project);
         context.SaveChanges();
     }

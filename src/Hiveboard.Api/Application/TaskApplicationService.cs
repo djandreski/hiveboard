@@ -10,6 +10,8 @@ namespace Hiveboard.Api.Application;
 
 public sealed class TaskApplicationService
 {
+    private const string CoordinatorAuditAgentName = "Coordinator";
+
     private readonly HiveboardDbContext _db;
     private readonly AgentContext _agentContext;
     private readonly IAgentAccessGuard _accessGuard;
@@ -75,11 +77,11 @@ public sealed class TaskApplicationService
         if (scopeError is not null)
             return scopeError;
 
-        var orchestratorError = _accessGuard.ValidateOrchestratorScope(
+        var coordinatorOrOrchestratorError = _accessGuard.ValidateCoordinatorOrOrchestratorScope(
             _agentContext,
-            "Only orchestrator agents can create tasks");
-        if (orchestratorError is not null)
-            return orchestratorError;
+            "Only coordinators or orchestrator agents can create tasks");
+        if (coordinatorOrOrchestratorError is not null)
+            return coordinatorOrOrchestratorError;
 
         if (request is null || string.IsNullOrWhiteSpace(request.Title))
             return Results.BadRequest(new { error = "Title is required" });
@@ -186,11 +188,11 @@ public sealed class TaskApplicationService
         if (scopeError is not null)
             return scopeError;
 
-        var orchestratorError = _accessGuard.ValidateOrchestratorScope(
+        var coordinatorOrOrchestratorError = _accessGuard.ValidateCoordinatorOrOrchestratorScope(
             _agentContext,
-            "Only orchestrator agents can update tasks");
-        if (orchestratorError is not null)
-            return orchestratorError;
+            "Only coordinators or orchestrator agents can update tasks");
+        if (coordinatorOrOrchestratorError is not null)
+            return coordinatorOrOrchestratorError;
 
         if (request is null)
             return Results.BadRequest(new { error = "Request body is required" });
@@ -273,16 +275,22 @@ public sealed class TaskApplicationService
                 if (task.Status == TaskStatusEnum.Backlog)
                     task.Status = TaskStatusEnum.Assigned;
 
-                _db.TaskEvents.Add(new TaskEvent
+                var eventAgentId = _agentContext.IsCoordinator
+                    ? await GetOrCreateCoordinatorAuditAgentIdAsync(now)
+                    : _agentContext.AgentId;
+
+                var assignmentEvent = new TaskEvent
                 {
                     Id = Guid.NewGuid(),
                     TaskId = task.Id,
-                    AgentId = _agentContext.AgentId,
+                    AgentId = eventAgentId,
                     EventType = "assigned",
                     OldValue = null,
                     NewValue = requestedAssigneeId.ToString(),
                     Timestamp = now
-                });
+                };
+
+                _db.TaskEvents.Add(assignmentEvent);
 
                 _db.Notifications.Add(new Notification
                 {
@@ -359,7 +367,7 @@ public sealed class TaskApplicationService
                 taskEvent.EventType,
                 taskEvent.OldValue,
                 taskEvent.NewValue,
-                taskEvent.Agent?.Name ?? string.Empty,
+                taskEvent.Agent?.Name ?? "Coordinator",
                 taskEvent.Timestamp))
             .ToList();
 
@@ -418,6 +426,38 @@ public sealed class TaskApplicationService
             .Trim();
 
         return Enum.TryParse(normalized, ignoreCase: true, out parsedStatus);
+    }
+
+    private async Task<Guid> GetOrCreateCoordinatorAuditAgentIdAsync(DateTimeOffset now)
+    {
+        var existingAgentId = await _db.Agents
+            .Where(agent =>
+                agent.OrganizationId == _agentContext.OrganizationId &&
+                agent.Name == CoordinatorAuditAgentName &&
+                agent.Type == AgentType.Orchestrator &&
+                agent.AgentPlatform == AgentPlatform.Custom &&
+                agent.Status == AgentStatus.Inactive &&
+                agent.ApiKeyHash == null)
+            .Select(agent => (Guid?)agent.Id)
+            .FirstOrDefaultAsync();
+
+        if (existingAgentId.HasValue)
+            return existingAgentId.Value;
+
+        var coordinatorAuditAgent = new Agent
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = _agentContext.OrganizationId,
+            Name = CoordinatorAuditAgentName,
+            Type = AgentType.Orchestrator,
+            AgentPlatform = AgentPlatform.Custom,
+            ApiKeyHash = null!,
+            Status = AgentStatus.Inactive,
+            CreatedAt = now
+        };
+
+        _db.Agents.Add(coordinatorAuditAgent);
+        return coordinatorAuditAgent.Id;
     }
 
     private static IResult Forbidden(string message) =>

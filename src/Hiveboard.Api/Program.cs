@@ -1,6 +1,7 @@
 using Hiveboard.Api.Application;
 using Hiveboard.Api.Auth;
 using Hiveboard.Api.Endpoints;
+using Hiveboard.Core.Enums;
 using Hiveboard.Infrastructure;
 using Hiveboard.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication;
@@ -32,7 +33,7 @@ builder.Services.AddSwaggerGen(options =>
         Type = SecuritySchemeType.ApiKey,
         Name = "X-Api-Key",
         In = ParameterLocation.Header,
-        Description = "API key authentication. Use an agent key (Any/Orchestrator) or admin key for admin endpoints."
+        Description = "API key authentication. Use the coordinator/admin key for control-plane actions, an orchestrator agent key for optional orchestration, or a worker key for worker flows."
     });
 
     options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
@@ -53,9 +54,9 @@ builder.Services.AddAuthorizationBuilder()
     .AddPolicy("AdminOnly", policy =>
         policy.RequireAssertion(context =>
             context.User.FindFirst("IsAdmin")?.Value == "true"))
-    .AddPolicy("OrchestratorOnly", policy =>
+    .AddPolicy("CoordinatorOrOrchestratorOnly", policy =>
         policy.RequireAssertion(context =>
-            context.User.FindFirst("AgentType")?.Value == "Orchestrator" ||
+            context.User.FindFirst("AgentType")?.Value == nameof(AgentType.Orchestrator) ||
             context.User.FindFirst("IsAdmin")?.Value == "true"));
 
 builder.Services.AddScoped<AdminKeyProvider>();
@@ -80,7 +81,11 @@ using (var scope = app.Services.CreateScope())
 
     if (app.Environment.IsDevelopment())
     {
-        HiveboardDbSeeder.SeedDevelopmentData(db);
+        var seederType = typeof(HiveboardDbContext).Assembly.GetType("Hiveboard.Infrastructure.Data.HiveboardDbSeeder")
+            ?? throw new InvalidOperationException("Infrastructure development seeder type was not found.");
+        var seedMethod = seederType.GetMethod("SeedDevelopmentData", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+            ?? throw new InvalidOperationException("Infrastructure development seeder entry point was not found.");
+        seedMethod.Invoke(null, [db]);
     }
 
     // Ensure admin key exists

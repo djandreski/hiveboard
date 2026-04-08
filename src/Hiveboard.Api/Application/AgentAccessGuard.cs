@@ -6,22 +6,29 @@ namespace Hiveboard.Api.Application;
 public interface IAgentAccessGuard
 {
     IResult? ValidateOrganizationScope(AgentContext agentContext);
-    IResult? ValidateOrchestratorScope(AgentContext agentContext, string forbiddenMessage);
+    IResult? ValidateCoordinatorOrOrchestratorScope(AgentContext agentContext, string forbiddenMessage);
 }
 
 public sealed class AgentAccessGuard : IAgentAccessGuard
 {
     public IResult? ValidateOrganizationScope(AgentContext agentContext)
     {
-        if (agentContext.IsAdmin || agentContext.OrganizationId == Guid.Empty)
-            return Forbidden("Organization-scoped endpoints require an agent API key");
+        if (agentContext.HasOrganizationScope)
+            return null;
 
-        return null;
+        if (agentContext.IsCoordinator && !string.IsNullOrWhiteSpace(agentContext.OrganizationScopeError))
+            return Forbidden(agentContext.OrganizationScopeError);
+
+        if (agentContext.IsCoordinator)
+            return Forbidden("Coordinator credential could not be mapped to an organization.");
+
+        return Forbidden("Authenticated agent is missing an organization scope.");
+
     }
 
-    public IResult? ValidateOrchestratorScope(AgentContext agentContext, string forbiddenMessage)
+    public IResult? ValidateCoordinatorOrOrchestratorScope(AgentContext agentContext, string forbiddenMessage)
     {
-        if (agentContext.AgentType != AgentType.Orchestrator || agentContext.AgentId == Guid.Empty)
+        if (!agentContext.IsCoordinator && !agentContext.IsOrchestrator)
             return Forbidden(forbiddenMessage);
 
         return null;

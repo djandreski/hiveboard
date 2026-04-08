@@ -11,8 +11,6 @@ namespace Hiveboard.Tests;
 
 public class TaskCrudAssignmentIntegrationTests
 {
-    private const string OrchestratorApiKey =
-        "hb_sk_task_orchestrator_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string WorkerAApiKey =
         "hb_sk_task_worker_a_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string WorkerBApiKey =
@@ -27,14 +25,9 @@ public class TaskCrudAssignmentIntegrationTests
     {
         await using var app = new HiveboardApiFactory();
 
-        var organization = IntegrationTestData.CreateOrganization("Tasks Org");
+        var organization = IntegrationTestData.CreateDefaultOrganization();
         var foreignOrganization = IntegrationTestData.CreateOrganization("Foreign Tasks Org");
 
-        var orchestrator = IntegrationTestData.CreateAgent(
-            organization.Id,
-            "Tasks Orchestrator",
-            AgentType.Orchestrator,
-            OrchestratorApiKey);
         var secondaryOrchestrator = IntegrationTestData.CreateAgent(
             organization.Id,
             "Secondary Orchestrator",
@@ -75,16 +68,16 @@ public class TaskCrudAssignmentIntegrationTests
         await app.SeedAsync(db =>
         {
             db.Organizations.AddRange(organization, foreignOrganization);
-            db.Agents.AddRange(orchestrator, secondaryOrchestrator, workerA, workerB, foreignWorker);
+            db.Agents.AddRange(secondaryOrchestrator, workerA, workerB, foreignWorker);
             db.Projects.Add(project);
             db.Epics.Add(epic);
             db.AgentTasks.Add(parentTask);
         });
 
-        using var orchestratorClient = app.CreateAuthenticatedClient(OrchestratorApiKey);
+        using var coordinatorClient = app.CreateCoordinatorClient();
         using var workerClient = app.CreateAuthenticatedClient(WorkerAApiKey);
 
-        var createResponse = await orchestratorClient.PostAsJsonAsync(
+        var createResponse = await coordinatorClient.PostAsJsonAsync(
             $"/api/v1/projects/{project.Id}/tasks",
             new CreateTaskRequest(
                 "Implement task CRUD endpoints",
@@ -110,17 +103,17 @@ public class TaskCrudAssignmentIntegrationTests
         Assert.Single(backlogList);
         Assert.Equal(taskId, backlogList[0].Id);
 
-        var nonWorkerAssignmentResponse = await orchestratorClient.PatchAsJsonAsync(
+        var nonWorkerAssignmentResponse = await coordinatorClient.PatchAsJsonAsync(
             $"/api/v1/tasks/{taskId}",
             new UpdateTaskRequest(null, null, null, secondaryOrchestrator.Id, null));
         Assert.Equal(HttpStatusCode.BadRequest, nonWorkerAssignmentResponse.StatusCode);
 
-        var foreignWorkerAssignmentResponse = await orchestratorClient.PatchAsJsonAsync(
+        var foreignWorkerAssignmentResponse = await coordinatorClient.PatchAsJsonAsync(
             $"/api/v1/tasks/{taskId}",
             new UpdateTaskRequest(null, null, null, foreignWorker.Id, null));
         Assert.Equal(HttpStatusCode.BadRequest, foreignWorkerAssignmentResponse.StatusCode);
 
-        var assignResponse = await orchestratorClient.PatchAsJsonAsync(
+        var assignResponse = await coordinatorClient.PatchAsJsonAsync(
             $"/api/v1/tasks/{taskId}",
             new UpdateTaskRequest(null, null, null, workerA.Id, null));
         Assert.Equal(HttpStatusCode.OK, assignResponse.StatusCode);
@@ -137,7 +130,7 @@ public class TaskCrudAssignmentIntegrationTests
         Assert.Single(filteredList);
         Assert.Equal(taskId, filteredList[0].Id);
 
-        var conflictResponse = await orchestratorClient.PatchAsJsonAsync(
+        var conflictResponse = await coordinatorClient.PatchAsJsonAsync(
             $"/api/v1/tasks/{taskId}",
             new UpdateTaskRequest(null, null, null, workerB.Id, null));
         Assert.Equal(HttpStatusCode.Conflict, conflictResponse.StatusCode);
@@ -237,7 +230,7 @@ public class TaskCrudAssignmentIntegrationTests
                 Id = Guid.NewGuid(),
                 ProjectId = project.Id,
                 TaskId = taskId,
-                AgentId = orchestrator.Id,
+                AgentId = secondaryOrchestrator.Id,
                 Title = "Use minimal API handlers",
                 Content = "Keeps endpoint definitions concise.",
                 Status = DecisionStatus.Accepted,

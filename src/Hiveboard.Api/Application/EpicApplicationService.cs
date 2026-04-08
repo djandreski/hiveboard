@@ -55,11 +55,11 @@ public sealed class EpicApplicationService
         if (scopeError is not null)
             return scopeError;
 
-        var orchestratorError = _accessGuard.ValidateOrchestratorScope(
+        var coordinatorOrOrchestratorError = _accessGuard.ValidateCoordinatorOrOrchestratorScope(
             _agentContext,
-            "Only orchestrator agents can create epics");
-        if (orchestratorError is not null)
-            return orchestratorError;
+            "Only coordinators or orchestrator agents can create epics");
+        if (coordinatorOrOrchestratorError is not null)
+            return coordinatorOrOrchestratorError;
 
         if (request is null || string.IsNullOrWhiteSpace(request.Title))
             return Results.BadRequest(new { error = "Title is required" });
