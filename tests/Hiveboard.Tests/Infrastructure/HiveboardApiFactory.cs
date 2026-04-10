@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Hiveboard.Tests.Infrastructure;
 
@@ -28,8 +29,18 @@ internal sealed class HiveboardApiFactory : WebApplicationFactory<Program>
             {
                 ["DatabaseProvider"] = "sqlite",
                 ["ConnectionStrings:DefaultConnection"] = $"Data Source={_databasePath}",
-                ["HIVEBOARD_ADMIN_KEY"] = AdminApiKey
+                ["HIVEBOARD_ADMIN_KEY"] = AdminApiKey,
+                ["Logging:LogLevel:Microsoft.EntityFrameworkCore.Database.Command"] = "Warning",
+                ["Logging:LogLevel:Microsoft.EntityFrameworkCore.Migrations"] = "Warning"
             });
+        });
+        builder.ConfigureLogging(logging =>
+        {
+            logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
+            logging.AddFilter("Microsoft.EntityFrameworkCore.Migrations", LogLevel.Warning);
+            logging.AddFilter("Hiveboard.Api.Auth.AdminKeyProvider", LogLevel.Warning);
+            logging.AddFilter("Microsoft.Hosting.Lifetime", LogLevel.Warning);
+            logging.AddFilter("Microsoft.AspNetCore.DataProtection", LogLevel.Critical);
         });
     }
 

@@ -47,6 +47,48 @@
     <Exec Command="npm run build:bundle" WorkingDirectory="$(DashboardProjectDir)" />
   </Target>
 
+  <Target Name="RefreshReferencedAssemblies"
+          BeforeTargets="CoreCompile"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <MSBuild Projects="..\Hiveboard.Core\Hiveboard.Core.csproj;..\Hiveboard.Infrastructure\Hiveboard.Infrastructure.csproj"
+             Targets="Build"
+             Properties="Configuration=$(Configuration);TargetFramework=net10.0;BaseOutputPath=bin\\;BaseIntermediateOutputPath=obj\\;OutputPath=bin\\$(Configuration)\\net10.0\\;IntermediateOutputPath=obj\\$(Configuration)\\net10.0\\" />
+    <MakeDir Directories="$(MSBuildProjectDirectory)\bin\$(Configuration)\net10.0\" />
+    <MakeDir Directories="$(TargetDir)" />
+    <Copy SourceFiles="..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.dll"
+          DestinationFiles="$(MSBuildProjectDirectory)\bin\$(Configuration)\net10.0\Hiveboard.Core.dll"
+          SkipUnchangedFiles="false"
+          Condition="Exists('..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.dll')" />
+    <Copy SourceFiles="..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.dll"
+          DestinationFiles="$(TargetDir)Hiveboard.Core.dll"
+          SkipUnchangedFiles="false"
+          Condition="Exists('..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.dll')" />
+    <Copy SourceFiles="..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.pdb"
+          DestinationFiles="$(MSBuildProjectDirectory)\bin\$(Configuration)\net10.0\Hiveboard.Core.pdb"
+          SkipUnchangedFiles="false"
+          Condition="Exists('..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.pdb')" />
+    <Copy SourceFiles="..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.pdb"
+          DestinationFiles="$(TargetDir)Hiveboard.Core.pdb"
+          SkipUnchangedFiles="false"
+          Condition="Exists('..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.pdb')" />
+    <Copy SourceFiles="..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.dll"
+          DestinationFiles="$(MSBuildProjectDirectory)\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.dll"
+          SkipUnchangedFiles="false"
+          Condition="Exists('..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.dll')" />
+    <Copy SourceFiles="..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.dll"
+          DestinationFiles="$(TargetDir)Hiveboard.Infrastructure.dll"
+          SkipUnchangedFiles="false"
+          Condition="Exists('..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.dll')" />
+    <Copy SourceFiles="..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.pdb"
+          DestinationFiles="$(MSBuildProjectDirectory)\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.pdb"
+          SkipUnchangedFiles="false"
+          Condition="Exists('..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.pdb')" />
+    <Copy SourceFiles="..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.pdb"
+          DestinationFiles="$(TargetDir)Hiveboard.Infrastructure.pdb"
+          SkipUnchangedFiles="false"
+          Condition="Exists('..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.pdb')" />
+  </Target>
+
   <Target Name="CopyDashboardToWwwroot"
           AfterTargets="Build"
           DependsOnTargets="BuildDashboard"

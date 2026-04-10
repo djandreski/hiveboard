@@ -729,23 +729,23 @@ Important framing:
 ```
 
 **Acceptance Criteria:**
-- [ ] Coordinator/admin can create projects, epics, and tasks and assign workers in the single-organization MVP flow
-- [ ] Workers still receive 403 for coordinator-only create/update/assignment actions
-- [ ] A coordinator-created project has no orchestrator attached by default
-- [ ] An orchestrator-created project still links that orchestrator to the project
-- [ ] Development seeding produces a coordinator-managed sample organization/project
-- [ ] Any required EF Core migration compiles and applies cleanly on a fresh database
-- [ ] Existing Task 7/8 integration tests are updated and a coordinator regression test is added
-- [ ] `dotnet restore Hiveboard.sln` succeeds
-- [ ] `dotnet build Hiveboard.sln -p:BuildDashboardAssets=false` succeeds
-- [ ] `dotnet test tests/Hiveboard.Tests/Hiveboard.Tests.csproj --no-restore -p:UseSandboxBuildWorkaround=true -p:BuildDashboardAssets=false` succeeds
-- [ ] `npm run build` succeeds in `src/Hiveboard.Dashboard`
-- [ ] Backend builds no longer require dashboard asset generation by default
+- [x] Coordinator/admin can create projects, epics, and tasks and assign workers in the single-organization MVP flow
+- [x] Workers still receive 403 for coordinator-only create/update/assignment actions
+- [x] A coordinator-created project has no orchestrator attached by default
+- [x] An orchestrator-created project still links that orchestrator to the project
+- [x] Development seeding produces a coordinator-managed sample organization/project
+- [x] Any required EF Core migration compiles and applies cleanly on a fresh database
+- [x] Existing Task 7/8 integration tests are updated and a coordinator regression test is added
+- [x] `dotnet restore Hiveboard.sln` succeeds
+- [x] `dotnet build Hiveboard.sln -p:BuildDashboardAssets=false` succeeds
+- [x] `dotnet test tests/Hiveboard.Tests/Hiveboard.Tests.csproj --no-restore -p:UseSandboxBuildWorkaround=true -p:BuildDashboardAssets=false` succeeds
+- [x] `npm run build` succeeds in `src/Hiveboard.Dashboard`
+- [x] Backend builds no longer require dashboard asset generation by default
 
 ---
 
 ### Task 10 — Task State Machine
-**Status:** Implementing
+**Status:** Implemented
 
 **Goal:** Implement the task status transition endpoint with coordinator-first rules while preserving optional co-orchestrator compatibility.
 
@@ -812,23 +812,24 @@ perform coordinator-side actions when one is configured.
 ```
 
 **Acceptance Criteria:**
-- [ ] All valid transitions from PRD section 6.2 work correctly
-- [ ] Invalid transitions return 409 with clear error message
-- [ ] Coordinator can perform coordination-side transitions
-- [ ] Optional orchestrator can perform the same coordination-side transitions when configured
-- [ ] Worker can't transition tasks not assigned to them
-- [ ] Transitioning to in-progress with unmet dependencies returns 409
-- [ ] Moving a task to in-review notifies the coordinator
-- [ ] Blocking a task notifies the coordinator
-- [ ] Coordinator-facing state-change notifications also reach the optional orchestrator when configured
-- [ ] Completing a task notifies dependent task agents
-- [ ] Parent auto-completes when all subtasks are done
-- [ ] TaskEvent is recorded for every transition
+
+- [x] All valid transitions from PRD section 6.2 work correctly
+- [x] Invalid transitions return 409 with clear error message
+- [x] Coordinator can perform coordination-side transitions
+- [x] Optional orchestrator can perform the same coordination-side transitions when configured
+- [x] Worker can't transition tasks not assigned to them
+- [x] Transitioning to in-progress with unmet dependencies returns 409
+- [x] Moving a task to in-review notifies the coordinator
+- [x] Blocking a task notifies the coordinator
+- [x] Coordinator-facing state-change notifications also reach the optional orchestrator when configured
+- [x] Completing a task notifies dependent task agents
+- [x] Parent auto-completes when all subtasks are done
+- [x] TaskEvent is recorded for every transition
 
 ---
 
 ### Task 11 — Dependency Management
-**Status:** Pending
+**Status:** Implementing
 
 **Goal:** Implement task dependency CRUD with circular dependency detection for coordinator-first workflows while preserving optional co-orchestrator compatibility.
 

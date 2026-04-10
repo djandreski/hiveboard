@@ -59,8 +59,6 @@ builder.Services.AddAuthorizationBuilder()
             context.User.FindFirst("AgentType")?.Value == nameof(AgentType.Orchestrator) ||
             context.User.FindFirst("IsAdmin")?.Value == "true"));
 
-builder.Services.AddScoped<AdminKeyProvider>();
-
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -110,6 +108,7 @@ app.MapAdminKeyEndpoints();
 app.MapProjectEndpoints();
 app.MapEpicEndpoints();
 app.MapTaskEndpoints();
+app.MapTaskStatusEndpoints();
 
 app.Run();
 

@@ -1,5 +1,5 @@
-using Hiveboard.Api.Auth;
 using Hiveboard.Core.Enums;
+using Hiveboard.Core.Services;
 
 namespace Hiveboard.Api.Application;
 

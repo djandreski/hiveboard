@@ -1,4 +1,4 @@
-using Hiveboard.Api.Auth;
+using Hiveboard.Core.Services;
 
 namespace Hiveboard.Api.Application;
 

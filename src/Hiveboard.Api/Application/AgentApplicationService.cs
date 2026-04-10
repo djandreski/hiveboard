@@ -2,6 +2,7 @@ using Hiveboard.Api.Auth;
 using Hiveboard.Api.Contracts;
 using Hiveboard.Core.Entities;
 using Hiveboard.Core.Enums;
+using Hiveboard.Core.Services;
 using Hiveboard.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using TaskStatusEnum = Hiveboard.Core.Enums.TaskStatus;

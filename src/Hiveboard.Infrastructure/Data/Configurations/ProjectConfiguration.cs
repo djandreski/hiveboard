@@ -16,7 +16,7 @@ public class ProjectConfiguration : IEntityTypeConfiguration<Project>
 
         builder.HasOne(p => p.OrchestratorAgent)
             .WithMany(a => a.OrchestratedProjects)
-            .HasForeignKey("OrchestratorAgentId")
+            .HasForeignKey(p => p.OrchestratorAgentId)
             .OnDelete(DeleteBehavior.SetNull);
 
         builder.HasMany(p => p.WorkerAgents)
