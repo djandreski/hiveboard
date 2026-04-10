@@ -1,6 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(UseSandboxBuildWorkaround)' != 'true'">
+    <ProjectReference Include="..\Hiveboard.Core\Hiveboard.Core.csproj" />
+    <ProjectReference Include="..\Hiveboard.Infrastructure\Hiveboard.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseSandboxBuildWorkaround)' == 'true'">
     <Reference Include="Hiveboard.Core">
       <HintPath>..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.dll</HintPath>
       <Private>true</Private>
@@ -49,7 +54,7 @@
 
   <Target Name="RefreshReferencedAssemblies"
           BeforeTargets="CoreCompile"
-          Condition="'$(DesignTimeBuild)' != 'true'">
+          Condition="'$(UseSandboxBuildWorkaround)' == 'true' and '$(DesignTimeBuild)' != 'true'">
     <MSBuild Projects="..\Hiveboard.Core\Hiveboard.Core.csproj;..\Hiveboard.Infrastructure\Hiveboard.Infrastructure.csproj"
              Targets="Build"
              Properties="Configuration=$(Configuration);TargetFramework=net10.0;BaseOutputPath=bin\\;BaseIntermediateOutputPath=obj\\;OutputPath=bin\\$(Configuration)\\net10.0\\;IntermediateOutputPath=obj\\$(Configuration)\\net10.0\\" />
