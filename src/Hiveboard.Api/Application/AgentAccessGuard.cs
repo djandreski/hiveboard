@@ -7,6 +7,10 @@ public interface IAgentAccessGuard
 {
     IResult? ValidateOrganizationScope(AgentContext agentContext);
     IResult? ValidateCoordinatorOrOrchestratorScope(AgentContext agentContext, string forbiddenMessage);
+    IResult? ValidateCoordinatorOrConfiguredProjectOrchestratorScope(
+        AgentContext agentContext,
+        Guid? projectOrchestratorAgentId,
+        string forbiddenMessage);
 }
 
 public sealed class AgentAccessGuard : IAgentAccessGuard
@@ -32,6 +36,24 @@ public sealed class AgentAccessGuard : IAgentAccessGuard
             return Forbidden(forbiddenMessage);
 
         return null;
+    }
+
+    public IResult? ValidateCoordinatorOrConfiguredProjectOrchestratorScope(
+        AgentContext agentContext,
+        Guid? projectOrchestratorAgentId,
+        string forbiddenMessage)
+    {
+        if (agentContext.IsCoordinator)
+            return null;
+
+        if (agentContext.IsOrchestrator &&
+            projectOrchestratorAgentId.HasValue &&
+            projectOrchestratorAgentId.Value == agentContext.AgentId)
+        {
+            return null;
+        }
+
+        return Forbidden(forbiddenMessage);
     }
 
     private static IResult Forbidden(string message) =>

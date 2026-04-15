@@ -186,4 +186,142 @@ public class CoordinatorControlIntegrationTests
             .SingleAsync());
         Assert.Equal(orchestrator.Id, orchestratorAgentId);
     }
+
+    [Fact]
+    public async Task UnconfiguredOrchestrator_CannotWriteToCoordinatorManagedProject()
+    {
+        await using var app = new HiveboardApiFactory();
+
+        var organization = IntegrationTestData.CreateDefaultOrganization();
+        var worker = IntegrationTestData.CreateAgent(
+            organization.Id,
+            "Coordinator Worker",
+            AgentType.Worker,
+            WorkerApiKey);
+        var orchestrator = IntegrationTestData.CreateAgent(
+            organization.Id,
+            "Unconfigured Orchestrator",
+            AgentType.Orchestrator,
+            OrchestratorApiKey);
+        var project = IntegrationTestData.CreateProject(organization.Id, "Coordinator Managed Project");
+        var existingTask = new AgentTask
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = project.Id,
+            Title = "Coordinator Owned Task",
+            Description = "Used to verify orchestrator write restrictions.",
+            Status = TaskStatusEnum.Backlog,
+            Metadata = new Dictionary<string, string>(),
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+
+        await app.SeedAsync(db =>
+        {
+            db.Organizations.Add(organization);
+            db.Agents.AddRange(worker, orchestrator);
+            db.Projects.Add(project);
+            db.AgentTasks.Add(existingTask);
+        });
+
+        using var orchestratorClient = app.CreateAuthenticatedClient(OrchestratorApiKey);
+
+        var createEpicResponse = await orchestratorClient.PostAsJsonAsync(
+            $"/api/v1/projects/{project.Id}/epics",
+            new CreateEpicRequest("Forbidden Epic", "Should be rejected"));
+        var createTaskResponse = await orchestratorClient.PostAsJsonAsync(
+            $"/api/v1/projects/{project.Id}/tasks",
+            new CreateTaskRequest("Forbidden Task", "Should be rejected", null, null, null));
+        var updateTaskResponse = await orchestratorClient.PatchAsJsonAsync(
+            $"/api/v1/tasks/{existingTask.Id}",
+            new UpdateTaskRequest("Retitled By Orchestrator", null, null, worker.Id, null));
+
+        Assert.Equal(HttpStatusCode.Forbidden, createEpicResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, createTaskResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, updateTaskResponse.StatusCode);
+
+        var persistedState = await app.QueryAsync(async db => new
+        {
+            EpicCount = await db.Epics.CountAsync(epic => epic.ProjectId == project.Id),
+            TaskCount = await db.AgentTasks.CountAsync(task => task.ProjectId == project.Id),
+            TaskTitle = await db.AgentTasks
+                .Where(task => task.Id == existingTask.Id)
+                .Select(task => task.Title)
+                .SingleAsync(),
+            AssignedAgentId = await db.AgentTasks
+                .Where(task => task.Id == existingTask.Id)
+                .Select(task => task.AssignedAgentId)
+                .SingleAsync()
+        });
+
+        Assert.Equal(0, persistedState.EpicCount);
+        Assert.Equal(1, persistedState.TaskCount);
+        Assert.Equal(existingTask.Title, persistedState.TaskTitle);
+        Assert.Null(persistedState.AssignedAgentId);
+    }
+
+    [Fact]
+    public async Task ConfiguredOrchestrator_CanWriteToAttachedProject()
+    {
+        await using var app = new HiveboardApiFactory();
+
+        var organization = IntegrationTestData.CreateDefaultOrganization();
+        var worker = IntegrationTestData.CreateAgent(
+            organization.Id,
+            "Configured Worker",
+            AgentType.Worker,
+            WorkerApiKey);
+        var orchestrator = IntegrationTestData.CreateAgent(
+            organization.Id,
+            "Configured Orchestrator",
+            AgentType.Orchestrator,
+            OrchestratorApiKey);
+        var project = IntegrationTestData.CreateProject(organization.Id, "Attached Project");
+        project.OrchestratorAgentId = orchestrator.Id;
+
+        await app.SeedAsync(db =>
+        {
+            db.Organizations.Add(organization);
+            db.Agents.AddRange(worker, orchestrator);
+            db.Projects.Add(project);
+        });
+
+        using var orchestratorClient = app.CreateAuthenticatedClient(OrchestratorApiKey);
+
+        var createEpicResponse = await orchestratorClient.PostAsJsonAsync(
+            $"/api/v1/projects/{project.Id}/epics",
+            new CreateEpicRequest("Attached Epic", "Created by the configured orchestrator"));
+        Assert.Equal(HttpStatusCode.Created, createEpicResponse.StatusCode);
+
+        var createdEpic = await createEpicResponse.Content.ReadFromJsonAsync<EpicResponse>();
+        Assert.NotNull(createdEpic);
+
+        var createTaskResponse = await orchestratorClient.PostAsJsonAsync(
+            $"/api/v1/projects/{project.Id}/tasks",
+            new CreateTaskRequest(
+                "Attached Task",
+                "Created by the configured orchestrator",
+                createdEpic!.Id,
+                null,
+                null));
+        Assert.Equal(HttpStatusCode.Created, createTaskResponse.StatusCode);
+
+        var createdTask = await createTaskResponse.Content.ReadFromJsonAsync<TaskResponse>();
+        Assert.NotNull(createdTask);
+
+        var updateTaskResponse = await orchestratorClient.PatchAsJsonAsync(
+            $"/api/v1/tasks/{createdTask!.Id}",
+            new UpdateTaskRequest(
+                "Attached Task Updated",
+                "Updated by the configured orchestrator",
+                createdEpic.Id,
+                worker.Id,
+                null));
+        Assert.Equal(HttpStatusCode.OK, updateTaskResponse.StatusCode);
+
+        var updatedTask = await updateTaskResponse.Content.ReadFromJsonAsync<TaskResponse>();
+        Assert.NotNull(updatedTask);
+        Assert.Equal("assigned", updatedTask!.Status);
+        Assert.Equal(worker.Id, updatedTask.AssignedAgentId);
+    }
 }

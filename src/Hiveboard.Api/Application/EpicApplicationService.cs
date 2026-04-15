@@ -74,6 +74,13 @@ public sealed class EpicApplicationService
         if (project.OrganizationId != _agentContext.OrganizationId)
             return Forbidden("Project belongs to a different organization");
 
+        var projectWriteAccessError = _accessGuard.ValidateCoordinatorOrConfiguredProjectOrchestratorScope(
+            _agentContext,
+            project.OrchestratorAgentId,
+            "Only the coordinator or the project's configured orchestrator can create epics");
+        if (projectWriteAccessError is not null)
+            return projectWriteAccessError;
+
         var epic = new Epic
         {
             Id = Guid.NewGuid(),

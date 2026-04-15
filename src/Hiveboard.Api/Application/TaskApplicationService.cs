@@ -99,6 +99,13 @@ public sealed class TaskApplicationService
         if (project.OrganizationId != _agentContext.OrganizationId)
             return Forbidden("Project belongs to a different organization");
 
+        var projectWriteAccessError = _accessGuard.ValidateCoordinatorOrConfiguredProjectOrchestratorScope(
+            _agentContext,
+            project.OrchestratorAgentId,
+            "Only the coordinator or the project's configured orchestrator can create tasks");
+        if (projectWriteAccessError is not null)
+            return projectWriteAccessError;
+
         if (request.EpicId.HasValue)
         {
             var epic = await _db.Epics
@@ -209,6 +216,13 @@ public sealed class TaskApplicationService
 
         if (task.Project?.OrganizationId != _agentContext.OrganizationId)
             return Forbidden("Task belongs to a different organization");
+
+        var projectWriteAccessError = _accessGuard.ValidateCoordinatorOrConfiguredProjectOrchestratorScope(
+            _agentContext,
+            task.Project?.OrchestratorAgentId,
+            "Only the coordinator or the project's configured orchestrator can update tasks");
+        if (projectWriteAccessError is not null)
+            return projectWriteAccessError;
 
         if (request.Title is not null)
         {

@@ -24,7 +24,7 @@ public static class EpicEndpoints
             .RequireAuthorization("CoordinatorOrOrchestratorOnly")
             .WithName("CreateEpic")
             .WithSummary("Create an epic")
-            .WithDescription("Auth: Coordinator/admin key or orchestrator agent API key. Creates an epic under a project in the caller's organization scope.")
+            .WithDescription("Auth: Coordinator/admin key or the configured project orchestrator API key. Creates an epic under a project in the caller's organization scope.")
             .Produces<EpicResponse>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
