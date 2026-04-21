@@ -829,7 +829,7 @@ perform coordinator-side actions when one is configured.
 ---
 
 ### Task 11 — Dependency Management
-**Status:** Implementing
+**Status:** Implemented
 
 **Goal:** Implement task dependency CRUD with circular dependency detection for coordinator-first workflows while preserving optional co-orchestrator compatibility.
 
@@ -890,19 +890,19 @@ Read PRD-Hiveboard.md sections 4.2 (TaskDependency), 5.3 (Dependency endpoints),
 ```
 
 **Acceptance Criteria:**
-- [ ] Can add dependencies between tasks
-- [ ] Circular dependency detection works (A→B→C→A returns error with cycle path)
-- [ ] Self-dependency returns 400
-- [ ] Cross-project dependencies are rejected
-- [ ] Can remove dependencies
-- [ ] Dependency graph endpoint returns correct nodes and edges
-- [ ] Coordinator can add/remove dependencies
-- [ ] Optional orchestrator can also add/remove dependencies when configured
+- [x] Can add dependencies between tasks
+- [x] Circular dependency detection works (A→B→C→A returns error with cycle path)
+- [X] Self-dependency returns 400
+- [X] Cross-project dependencies are rejected
+- [x] Can remove dependencies
+- [X] Dependency graph endpoint returns correct nodes and edges
+- [X] Coordinator can add/remove dependencies
+- [x] Optional orchestrator can also add/remove dependencies when configured
 
 ---
 
 ### Task 12 — Task Decomposition
-**Status:** Pending
+**Status:** Implementing
 
 **Goal:** Implement the task decomposition endpoint where a worker, coordinator, or optional orchestrator breaks a task into subtasks.
 

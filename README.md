@@ -20,7 +20,7 @@ I am building Hiveboard in public with a **19-step Agentic Implementation Guide*
 
 My role is to define architecture, constraints, and acceptance criteria. AI coding agents execute the tasks. I review the output, push the standard up, and iterate.
 
-**Current Progress: 47% Complete (9 of 19 tasks)**
+**Current Progress: 58% Complete (11 of 19 tasks)**
 
 - [x] **Task 1:** Project initialization and clean architecture
 - [x] **Task 2:** Domain model (tasks, epics, agents)
@@ -31,14 +31,17 @@ My role is to define architecture, constraints, and acceptance criteria. AI codi
 - [x] **Task 7:** Project and Epic CRUD endpoints
 - [x] **Task 8:** Task CRUD and assignment endpoints
 - [x] **Task 9:** Coordinator-first MVP realignment
-- [ ] **Task 10:** Task state machine <- **WE ARE HERE**
-- [ ] **Task 11-19:** Remaining API, coordination, MCP, dashboard, and polish tasks
+- [x] **Task 10:** Task state machine
+- [x] **Task 11:** Dependency management
+- [ ] **Task 12:** Task decomposition <- **WE ARE HERE**
+- [ ] **Task 13-19:** Remaining API, coordination, MCP, dashboard, and polish tasks
 
 Recent milestone:
 
 - Hiveboard now runs in the coordinator-first MVP mode by default.
 - The Admin API key acts as the self-hosted coordinator credential for control-plane CRUD.
 - Optional orchestrator agents still work, but they are no longer required for normal project, epic, and task flows.
+- Task dependency management now supports add/remove flows, circular dependency detection, and project graph retrieval.
 
 See the full execution checklist in [IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md).
 

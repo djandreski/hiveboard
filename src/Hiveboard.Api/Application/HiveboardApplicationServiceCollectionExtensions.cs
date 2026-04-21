@@ -15,8 +15,11 @@ public static class HiveboardApplicationServiceCollectionExtensions
         services.AddScoped<IAgentAccessGuard, AgentAccessGuard>();
         services.AddScoped<ICoordinatorScopeResolver, CoordinatorScopeResolver>();
         services.AddScoped<AdminKeyProvider>();
+        services.AddScoped<IDependencyRepository, EfCoreDependencyRepository>();
+        services.AddScoped<DependencyService>();
         services.AddScoped<TaskStateMachine>();
         services.AddScoped<AgentApplicationService>();
+        services.AddScoped<DependencyApplicationService>();
         services.AddScoped<ProjectApplicationService>();
         services.AddScoped<EpicApplicationService>();
         services.AddScoped<TaskApplicationService>();
