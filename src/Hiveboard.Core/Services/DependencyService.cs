@@ -52,7 +52,8 @@ public sealed record DependencyGraphNode(
 public sealed record DependencyGraphEdge(
     Guid From,
     Guid To,
-    string Type);
+    string Type,
+    Guid DepId);
 
 public sealed record DependencyGraph(
     IReadOnlyList<DependencyGraphNode> Nodes,
@@ -169,7 +170,8 @@ public sealed class DependencyService
             .Select(candidate => new DependencyGraphEdge(
                 candidate.TaskId,
                 candidate.DependsOnTaskId,
-                candidate.Type.ToString().ToLowerInvariant()))
+                candidate.Type.ToString().ToLowerInvariant(),
+                candidate.Id))
             .ToList();
 
         return new DependencyGraph(nodes, edges);

@@ -142,7 +142,8 @@ public sealed class DependencyApplicationService
                 .Select(candidate => new DependencyGraphEdgeResponse(
                     candidate.From,
                     candidate.To,
-                    candidate.Type))
+                    candidate.Type,
+                    candidate.DepId))
                 .ToList()));
     }
 

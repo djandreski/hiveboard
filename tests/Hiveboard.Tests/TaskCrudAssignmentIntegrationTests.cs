@@ -190,21 +190,22 @@ public class TaskCrudAssignmentIntegrationTests
             };
 
             db.AgentTasks.AddRange(blockedByTask, blockingTask, subtask);
-            db.TaskDependencies.AddRange(
-                new TaskDependency
-                {
-                    Id = Guid.NewGuid(),
-                    TaskId = taskId,
-                    DependsOnTaskId = blockedByTask.Id,
-                    Type = DependencyType.Blocks
-                },
-                new TaskDependency
-                {
-                    Id = Guid.NewGuid(),
-                    TaskId = blockingTask.Id,
-                    DependsOnTaskId = taskId,
-                    Type = DependencyType.Blocks
-                });
+            var blockedByDependency = new TaskDependency
+            {
+                Id = Guid.NewGuid(),
+                TaskId = taskId,
+                DependsOnTaskId = blockedByTask.Id,
+                Type = DependencyType.Blocks
+            };
+            var blockingDependency = new TaskDependency
+            {
+                Id = Guid.NewGuid(),
+                TaskId = blockingTask.Id,
+                DependsOnTaskId = taskId,
+                Type = DependencyType.Blocks
+            };
+
+            db.TaskDependencies.AddRange(blockedByDependency, blockingDependency);
             db.TaskNotes.Add(new TaskNote
             {
                 Id = Guid.NewGuid(),
@@ -242,7 +243,9 @@ public class TaskCrudAssignmentIntegrationTests
 
             return new TaskContextFixtureIds(
                 blockedByTask.Id,
+                blockedByDependency.Id,
                 blockingTask.Id,
+                blockingDependency.Id,
                 subtask.Id,
                 decision.Id);
         });
@@ -266,8 +269,12 @@ public class TaskCrudAssignmentIntegrationTests
         Assert.Equal(parentTask.Id, detail.ParentTask!.Id);
 
         Assert.Contains(detail.Subtasks, subtask => subtask.Id == contextFixtureIds.SubtaskId);
-        Assert.Contains(detail.Dependencies.BlockedBy, dependency => dependency.TaskId == contextFixtureIds.BlockedByTaskId);
-        Assert.Contains(detail.Dependencies.Blocking, dependency => dependency.TaskId == contextFixtureIds.BlockingTaskId);
+        Assert.Contains(detail.Dependencies.BlockedBy, dependency =>
+            dependency.TaskId == contextFixtureIds.BlockedByTaskId &&
+            dependency.DepId == contextFixtureIds.BlockedByDependencyId);
+        Assert.Contains(detail.Dependencies.Blocking, dependency =>
+            dependency.TaskId == contextFixtureIds.BlockingTaskId &&
+            dependency.DepId == contextFixtureIds.BlockingDependencyId);
         Assert.Contains(detail.Notes, note => note.Agent == workerA.Name && note.Type == "context");
         Assert.Contains(detail.Events, taskEvent => taskEvent.EventType == "assigned");
         Assert.Contains(detail.RelatedDecisions, decision => decision.Id == contextFixtureIds.DecisionId);
@@ -279,7 +286,9 @@ public class TaskCrudAssignmentIntegrationTests
 
     private sealed record TaskContextFixtureIds(
         Guid BlockedByTaskId,
+        Guid BlockedByDependencyId,
         Guid BlockingTaskId,
+        Guid BlockingDependencyId,
         Guid SubtaskId,
         Guid DecisionId);
 }

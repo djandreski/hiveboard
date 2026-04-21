@@ -75,7 +75,8 @@ public class DependencyManagementIntegrationTests
         Assert.Contains(graph.Edges, edge =>
             edge.From == dependentTask.Id &&
             edge.To == prerequisiteTask.Id &&
-            edge.Type == "blocks");
+            edge.Type == "blocks" &&
+            edge.DepId == createdDependency.Id);
 
         var removeResponse = await coordinatorClient.DeleteAsync(
             $"/api/v1/tasks/{dependentTask.Id}/dependencies/{createdDependency.Id}");
@@ -110,7 +111,8 @@ public class DependencyManagementIntegrationTests
         Assert.Contains(finalGraph!.Edges, edge =>
             edge.From == backlogTask.Id &&
             edge.To == prerequisiteTask.Id &&
-            edge.Type == "blocks");
+            edge.Type == "blocks" &&
+            edge.DepId == orchestratorDependency!.Id);
 
         var orchestratorRemoveResponse = await orchestratorClient.DeleteAsync(
             $"/api/v1/tasks/{backlogTask.Id}/dependencies/{orchestratorDependency!.Id}");

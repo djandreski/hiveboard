@@ -19,4 +19,5 @@ public record DependencyGraphNodeResponse(
 public record DependencyGraphEdgeResponse(
     Guid From,
     Guid To,
-    string Type);
+    string Type,
+    Guid DepId);

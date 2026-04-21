@@ -48,7 +48,8 @@ public record TaskContextDependenciesResponse(
 public record TaskContextDependencyTaskResponse(
     Guid TaskId,
     string Title,
-    string Status);
+    string Status,
+    Guid DepId);
 
 public record TaskContextNoteResponse(
     string Agent,

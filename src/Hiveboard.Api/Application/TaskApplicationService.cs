@@ -429,7 +429,8 @@ public sealed class TaskApplicationService
             .Select(dependency => new TaskContextDependencyTaskResponse(
                 dependency.DependsOnTaskId,
                 dependency.DependsOnTask!.Title,
-                ToApiValue(dependency.DependsOnTask.Status)))
+                ToApiValue(dependency.DependsOnTask.Status),
+                dependency.Id))
             .ToList();
 
         var blocking = task.DependentTasks
@@ -438,7 +439,8 @@ public sealed class TaskApplicationService
             .Select(dependency => new TaskContextDependencyTaskResponse(
                 dependency.TaskId,
                 dependency.Task!.Title,
-                ToApiValue(dependency.Task.Status)))
+                ToApiValue(dependency.Task.Status),
+                dependency.Id))
             .ToList();
 
         var subtasks = task.Subtasks
