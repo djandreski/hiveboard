@@ -109,6 +109,7 @@ app.MapProjectEndpoints();
 app.MapEpicEndpoints();
 app.MapTaskEndpoints();
 app.MapTaskStatusEndpoints();
+app.MapTaskDecompositionEndpoints();
 app.MapDependencyEndpoints();
 
 app.Run();

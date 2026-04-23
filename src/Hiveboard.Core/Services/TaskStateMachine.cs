@@ -61,6 +61,12 @@ public sealed class TaskStateMachine
         if (task.Status == newStatus)
             return TaskTransitionValidationResult.Invalid($"Task is already in '{ToApiValue(newStatus)}' status.");
 
+        if (newStatus == TaskStatusEnum.Done && task.Subtasks.Count > 0)
+        {
+            return TaskTransitionValidationResult.Invalid(
+                "Tasks with subtasks cannot be completed directly. Complete all subtasks instead.");
+        }
+
         return (task.Status, newStatus) switch
         {
             (TaskStatusEnum.Backlog, TaskStatusEnum.Assigned) => ValidateAssignment(task, caller),

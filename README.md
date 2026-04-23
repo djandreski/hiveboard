@@ -20,7 +20,7 @@ I am building Hiveboard in public with a **19-step Agentic Implementation Guide*
 
 My role is to define architecture, constraints, and acceptance criteria. AI coding agents execute the tasks. I review the output, push the standard up, and iterate.
 
-**Current Progress: 58% Complete (11 of 19 tasks)**
+**Current Progress: 63% Complete (12 of 19 tasks)**
 
 - [x] **Task 1:** Project initialization and clean architecture
 - [x] **Task 2:** Domain model (tasks, epics, agents)
@@ -33,8 +33,9 @@ My role is to define architecture, constraints, and acceptance criteria. AI codi
 - [x] **Task 9:** Coordinator-first MVP realignment
 - [x] **Task 10:** Task state machine
 - [x] **Task 11:** Dependency management
-- [ ] **Task 12:** Task decomposition <- **WE ARE HERE**
-- [ ] **Task 13-19:** Remaining API, coordination, MCP, dashboard, and polish tasks
+- [x] **Task 12:** Task decomposition
+- [ ] **Task 13:** Notes and decision records endpoints <- **WE ARE HERE**
+- [ ] **Task 14-19:** Remaining coordination, MCP, dashboard, and polish tasks
 
 Recent milestone:
 
@@ -42,6 +43,7 @@ Recent milestone:
 - The Admin API key acts as the self-hosted coordinator credential for control-plane CRUD.
 - Optional orchestrator agents still work, but they are no longer required for normal project, epic, and task flows.
 - Task dependency management now supports add/remove flows, circular dependency detection, and project graph retrieval.
+- Task decomposition now supports worker/coordinator/orchestrator-triggered subtask creation, parent decomposition events, and coordinator/orchestrator notifications.
 
 See the full execution checklist in [IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md).
 

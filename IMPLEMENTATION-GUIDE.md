@@ -902,7 +902,7 @@ Read PRD-Hiveboard.md sections 4.2 (TaskDependency), 5.3 (Dependency endpoints),
 ---
 
 ### Task 12 — Task Decomposition
-**Status:** Implementing
+**Status:** Implemented
 
 **Goal:** Implement the task decomposition endpoint where a worker, coordinator, or optional orchestrator breaks a task into subtasks.
 
@@ -955,20 +955,20 @@ Read PRD-Hiveboard.md sections 5.3 (POST /tasks/{id}/subtasks) and 6.3 (Task Dec
 ```
 
 **Acceptance Criteria:**
-- [ ] Assigned worker can decompose their task into subtasks
-- [ ] Coordinator can also decompose tasks
-- [ ] Optional orchestrator can also decompose tasks when configured
-- [ ] Subtasks are created in backlog with correct parent/project/epic links
-- [ ] Parent moves to in-progress if it was assigned
-- [ ] Coordinator is notified of decomposition
-- [ ] Coordinator-facing decomposition notifications also reach the optional orchestrator when configured
-- [ ] TaskEvent is recorded
-- [ ] Validation: empty title, 0 subtasks, >50 subtasks all return 400
+- [x] Assigned worker can decompose their task into subtasks
+- [x] Coordinator can also decompose tasks
+- [x] Optional orchestrator can also decompose tasks when configured
+- [x] Subtasks are created in backlog with correct parent/project/epic links
+- [x] Parent moves to in-progress if it was assigned
+- [x] Coordinator is notified of decomposition
+- [x] Coordinator-facing decomposition notifications also reach the optional orchestrator when configured
+- [x] TaskEvent is recorded
+- [x] Validation: empty title, 0 subtasks, >50 subtasks all return 400
 
 ---
 
 ### Task 13 — Notes & Decision Records Endpoints
-**Status:** Pending
+**Status:** Implementing
 
 **Goal:** Implement task notes and project-level decision record endpoints.
 

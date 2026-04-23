@@ -280,6 +280,50 @@ public class TaskStatusWorkflowIntegrationTests
         Assert.True(completionArtifacts.parentStatusChangedEventExists);
     }
 
+    [Fact]
+    public async Task StatusEndpoint_RejectsDirectCompletion_WhenTaskHasSubtasks()
+    {
+        await using var app = new HiveboardApiFactory();
+
+        var organization = IntegrationTestData.CreateDefaultOrganization();
+        var worker = IntegrationTestData.CreateAgent(organization.Id, "Worker A", AgentType.Worker, WorkerAApiKey);
+        var project = IntegrationTestData.CreateProject(organization.Id, "Parent Guard Project");
+
+        var parentTask = CreateTask(project.Id, "Parent Task", TaskStatusEnum.InProgress, worker.Id);
+        var subtask = CreateTask(project.Id, "Child Task", TaskStatusEnum.Backlog, parentTaskId: parentTask.Id);
+
+        await app.SeedAsync(db =>
+        {
+            db.Organizations.Add(organization);
+            db.Agents.Add(worker);
+            db.Projects.Add(project);
+            db.AgentTasks.AddRange(parentTask, subtask);
+        });
+
+        using var workerClient = app.CreateAuthenticatedClient(WorkerAApiKey);
+
+        var response = await workerClient.PatchAsJsonAsync(
+            $"/api/v1/tasks/{parentTask.Id}/status",
+            new { status = "Done" });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+
+        using (var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal(
+                "Tasks with subtasks cannot be completed directly. Complete all subtasks instead.",
+                payload.RootElement.GetProperty("error").GetString());
+        }
+
+        var persistedStatus = await app.QueryAsync(db =>
+            db.AgentTasks
+                .Where(candidate => candidate.Id == parentTask.Id)
+                .Select(candidate => candidate.Status)
+                .SingleAsync());
+
+        Assert.Equal(TaskStatusEnum.InProgress, persistedStatus);
+    }
+
     private static AgentTask CreateTask(
         Guid projectId,
         string title,

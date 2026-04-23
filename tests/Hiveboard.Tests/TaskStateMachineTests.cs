@@ -110,6 +110,28 @@ public class TaskStateMachineTests
         Assert.Equal("Transitioning to 'backlog' must clear the assigned agent.", result.ErrorMessage);
     }
 
+    [Theory]
+    [InlineData(TaskStatusEnum.InProgress)]
+    [InlineData(TaskStatusEnum.InReview)]
+    public void TasksWithSubtasks_CannotTransitionDirectlyToDone(TaskStatusEnum currentStatus)
+    {
+        var workerId = Guid.NewGuid();
+        var task = CreateTask(currentStatus, assignedAgentId: workerId);
+        task.Subtasks.Add(CreateTask(TaskStatusEnum.Backlog, title: "Subtask"));
+
+        var caller = currentStatus == TaskStatusEnum.InReview
+            ? CreateCoordinator()
+            : CreateWorker(workerId);
+
+        var result = _stateMachine.ValidateTransition(task, TaskStatusEnum.Done, caller);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(TaskTransitionFailureKind.InvalidTransition, result.FailureKind);
+        Assert.Equal(
+            "Tasks with subtasks cannot be completed directly. Complete all subtasks instead.",
+            result.ErrorMessage);
+    }
+
     private static AgentTask CreateTask(
         TaskStatusEnum status,
         Guid? assignedAgentId = null,

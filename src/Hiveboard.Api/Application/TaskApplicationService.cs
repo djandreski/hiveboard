@@ -328,6 +328,7 @@ public sealed class TaskApplicationService
             .Include(candidate => candidate.Project)
             .Include(candidate => candidate.Dependencies)
                 .ThenInclude(dependency => dependency.DependsOnTask)
+            .Include(candidate => candidate.Subtasks)
             .FirstOrDefaultAsync(candidate => candidate.Id == taskId);
 
         if (task is null)
@@ -409,6 +410,124 @@ public sealed class TaskApplicationService
         await _db.SaveChangesAsync();
 
         return Results.Ok(ToTaskResponse(task));
+    }
+
+    public async Task<IResult> DecomposeTaskAsync(Guid taskId, DecomposeTaskRequest? request)
+    {
+        var scopeError = _accessGuard.ValidateOrganizationScope(_agentContext);
+        if (scopeError is not null)
+            return scopeError;
+
+        if (request?.Subtasks is null || request.Subtasks.Count == 0)
+            return Results.BadRequest(new { error = "At least one subtask is required." });
+
+        if (request.Subtasks.Count > 50)
+            return Results.BadRequest(new { error = "A maximum of 50 subtasks is allowed per request." });
+
+        var subtaskDefinitions = new List<(string Title, string Description)>(request.Subtasks.Count);
+
+        for (var index = 0; index < request.Subtasks.Count; index++)
+        {
+            var subtask = request.Subtasks[index];
+
+            if (subtask is null || string.IsNullOrWhiteSpace(subtask.Title))
+                return Results.BadRequest(new { error = $"Subtask {index + 1} title is required." });
+
+            subtaskDefinitions.Add((subtask.Title.Trim(), subtask.Description?.Trim() ?? string.Empty));
+        }
+
+        var parentTask = await _db.AgentTasks
+            .Include(candidate => candidate.Project)
+            .FirstOrDefaultAsync(candidate => candidate.Id == taskId);
+
+        if (parentTask is null)
+            return Results.NotFound(new { error = "Task not found" });
+
+        if (parentTask.Project?.OrganizationId != _agentContext.OrganizationId)
+            return Forbidden("Task belongs to a different organization");
+
+        var accessError = ValidateTaskDecompositionAccess(parentTask);
+        if (accessError is not null)
+            return accessError;
+
+        if (parentTask.Status is not (TaskStatusEnum.Assigned or TaskStatusEnum.InProgress))
+        {
+            return Results.Conflict(new
+            {
+                error = "Only tasks in 'assigned' or 'in-progress' status can be decomposed."
+            });
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var eventAgentId = await GetEventAgentIdAsync(now);
+        var createdSubtasks = new List<AgentTask>(subtaskDefinitions.Count);
+
+        foreach (var subtaskDefinition in subtaskDefinitions)
+        {
+            createdSubtasks.Add(new AgentTask
+            {
+                Id = Guid.NewGuid(),
+                ProjectId = parentTask.ProjectId,
+                EpicId = parentTask.EpicId,
+                ParentTaskId = parentTask.Id,
+                Title = subtaskDefinition.Title,
+                Description = subtaskDefinition.Description,
+                Status = TaskStatusEnum.Backlog,
+                Metadata = new Dictionary<string, string>(),
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+        }
+
+        _db.AgentTasks.AddRange(createdSubtasks);
+
+        if (parentTask.Status == TaskStatusEnum.Assigned)
+        {
+            parentTask.Status = TaskStatusEnum.InProgress;
+            _db.TaskEvents.Add(CreateStatusChangeEvent(parentTask.Id, eventAgentId, TaskStatusEnum.Assigned, TaskStatusEnum.InProgress, now));
+        }
+
+        parentTask.UpdatedAt = now;
+
+        _db.TaskEvents.Add(new TaskEvent
+        {
+            Id = Guid.NewGuid(),
+            TaskId = parentTask.Id,
+            AgentId = eventAgentId,
+            EventType = "decomposed",
+            OldValue = null,
+            NewValue = createdSubtasks.Count.ToString(),
+            Timestamp = now
+        });
+
+        var actorName = string.IsNullOrWhiteSpace(_agentContext.AgentName)
+            ? "Unknown agent"
+            : _agentContext.AgentName;
+        var notificationMessage =
+            $"Task '{parentTask.Title}' was decomposed into {createdSubtasks.Count} subtasks by {actorName}";
+        var coordinatorAgentId = await GetOrCreateCoordinatorAuditAgentIdAsync(now);
+
+        _db.Notifications.Add(CreateNotification(
+            coordinatorAgentId,
+            NotificationType.TaskDecomposed,
+            parentTask.Id,
+            notificationMessage,
+            now));
+
+        if (parentTask.Project?.OrchestratorAgentId is Guid orchestratorAgentId &&
+            orchestratorAgentId != coordinatorAgentId)
+        {
+            _db.Notifications.Add(CreateNotification(
+                orchestratorAgentId,
+                NotificationType.TaskDecomposed,
+                parentTask.Id,
+                notificationMessage,
+                now));
+        }
+
+        await _db.SaveChangesAsync();
+
+        return Results.Ok(createdSubtasks.Select(ToTaskResponse).ToList());
     }
 
     private static TaskResponse ToTaskResponse(AgentTask task) =>
@@ -528,6 +647,24 @@ public sealed class TaskApplicationService
             .Trim();
 
         return Enum.TryParse(normalized, ignoreCase: true, out parsedStatus);
+    }
+
+    private IResult? ValidateTaskDecompositionAccess(AgentTask task)
+    {
+        if (_agentContext.IsCoordinator)
+            return null;
+
+        if (task.AssignedAgentId.HasValue && task.AssignedAgentId.Value == _agentContext.AgentId)
+            return null;
+
+        if (_agentContext.IsOrchestrator &&
+            task.Project?.OrchestratorAgentId.HasValue == true &&
+            task.Project.OrchestratorAgentId.Value == _agentContext.AgentId)
+        {
+            return null;
+        }
+
+        return Forbidden("Only the assigned worker, the coordinator, or the configured orchestrator can decompose this task.");
     }
 
     private async Task<IResult?> ValidateAndApplyAssignedAgentAsync(AgentTask task, Guid requestedAssigneeId)
