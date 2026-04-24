@@ -1035,7 +1035,7 @@ Read PRD-Hiveboard.md sections 4.2 (TaskNote, DecisionRecord) and 5.3 (Notes, De
 ## Phase 3: Coordination + Intelligence
 
 ### Task 14 — Notification Engine
-**Status:** Implementing
+**Status:** Implemented
 
 **Goal:** Implement the notification polling endpoint and ensure all coordinator/worker notification triggers from previous tasks are working correctly.
 
@@ -1102,16 +1102,16 @@ Read PRD-Hiveboard.md section 7 (Notification System).
 ```
 
 **Acceptance Criteria:**
-- [ ] Can poll for unacknowledged notifications
-- [ ] Can acknowledge notifications
-- [ ] All 5 notification types fire correctly
-- [ ] Notifications are agent-scoped (can only see your own)
-- [ ] Acknowledging another agent's notification returns 404
+- [x] Can poll for unacknowledged notifications
+- [x] Can acknowledge notifications
+- [x] All 5 notification types fire correctly
+- [x] Notifications are agent-scoped (can only see your own)
+- [x] Acknowledging another agent's notification returns 404
 
 ---
 
 ### Task 15 — Full Task Context Assembly
-**Status:** Pending
+**Status:** Implementing
 
 **Goal:** Ensure the GET /tasks/{id} endpoint returns the complete, rich context bundle that agents and human coordinators need.
 

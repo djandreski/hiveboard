@@ -16,17 +16,20 @@ public sealed class TaskApplicationService
     private readonly AgentContext _agentContext;
     private readonly IAgentAccessGuard _accessGuard;
     private readonly TaskStateMachine _taskStateMachine;
+    private readonly NotificationService _notificationService;
 
     public TaskApplicationService(
         HiveboardDbContext db,
         AgentContext agentContext,
         IAgentAccessGuard accessGuard,
-        TaskStateMachine taskStateMachine)
+        TaskStateMachine taskStateMachine,
+        NotificationService notificationService)
     {
         _db = db;
         _agentContext = agentContext;
         _accessGuard = accessGuard;
         _taskStateMachine = taskStateMachine;
+        _notificationService = notificationService;
     }
 
     public async Task<IResult> ListProjectTasksAsync(
@@ -301,7 +304,7 @@ public sealed class TaskApplicationService
                     Timestamp = now
                 });
 
-                _db.Notifications.Add(CreateTaskAssignedNotification(task, requestedAssigneeId, now));
+                CreateTaskAssignedNotification(task, requestedAssigneeId, now);
             }
         }
 
@@ -383,7 +386,7 @@ public sealed class TaskApplicationService
             task.AssignedAgentId.HasValue &&
             (!previousAssignedAgentId.HasValue || task.AssignedAgentId.Value != previousAssignedAgentId.Value))
         {
-            _db.Notifications.Add(CreateTaskAssignedNotification(task, task.AssignedAgentId.Value, now));
+            CreateTaskAssignedNotification(task, task.AssignedAgentId.Value, now);
         }
 
         switch (newStatus)
@@ -507,22 +510,22 @@ public sealed class TaskApplicationService
             $"Task '{parentTask.Title}' was decomposed into {createdSubtasks.Count} subtasks by {actorName}";
         var coordinatorAgentId = await GetOrCreateCoordinatorAuditAgentIdAsync(now);
 
-        _db.Notifications.Add(CreateNotification(
+        _notificationService.CreateNotification(
             coordinatorAgentId,
             NotificationType.TaskDecomposed,
             parentTask.Id,
             notificationMessage,
-            now));
+            now);
 
         if (parentTask.Project?.OrchestratorAgentId is Guid orchestratorAgentId &&
             orchestratorAgentId != coordinatorAgentId)
         {
-            _db.Notifications.Add(CreateNotification(
+            _notificationService.CreateNotification(
                 orchestratorAgentId,
                 NotificationType.TaskDecomposed,
                 parentTask.Id,
                 notificationMessage,
-                now));
+                now);
         }
 
         await _db.SaveChangesAsync();
@@ -711,17 +714,13 @@ public sealed class TaskApplicationService
             Timestamp = timestamp
         };
 
-    private static Notification CreateTaskAssignedNotification(AgentTask task, Guid agentId, DateTimeOffset now) =>
-        new()
-        {
-            Id = Guid.NewGuid(),
-            AgentId = agentId,
-            Type = NotificationType.TaskAssigned,
-            TaskId = task.Id,
-            Message = $"Task '{task.Title}' has been assigned to you",
-            IsAcknowledged = false,
-            CreatedAt = now
-        };
+    private Notification CreateTaskAssignedNotification(AgentTask task, Guid agentId, DateTimeOffset now) =>
+        _notificationService.CreateNotification(
+            agentId,
+            NotificationType.TaskAssigned,
+            task.Id,
+            $"Task '{task.Title}' has been assigned to you",
+            now);
 
     private async Task CreateCoordinatorTransitionNotificationsAsync(
         AgentTask task,
@@ -730,12 +729,12 @@ public sealed class TaskApplicationService
         DateTimeOffset now)
     {
         var coordinatorAgentId = await GetOrCreateCoordinatorAuditAgentIdAsync(now);
-        _db.Notifications.Add(CreateNotification(coordinatorAgentId, notificationType, task.Id, message, now));
+        _notificationService.CreateNotification(coordinatorAgentId, notificationType, task.Id, message, now);
 
         if (task.Project?.OrchestratorAgentId is Guid orchestratorAgentId &&
             orchestratorAgentId != coordinatorAgentId)
         {
-            _db.Notifications.Add(CreateNotification(orchestratorAgentId, notificationType, task.Id, message, now));
+            _notificationService.CreateNotification(orchestratorAgentId, notificationType, task.Id, message, now);
         }
     }
 
@@ -773,12 +772,12 @@ public sealed class TaskApplicationService
             if (!isUnblocked || !dependentTask.AssignedAgentId.HasValue)
                 continue;
 
-            _db.Notifications.Add(CreateNotification(
+            _notificationService.CreateNotification(
                 dependentTask.AssignedAgentId.Value,
                 NotificationType.DependencyResolved,
                 dependentTask.Id,
                 $"Task '{dependentTask.Title}' is now unblocked because '{completedTask.Title}' is done.",
-                now));
+                now);
         }
     }
 
@@ -807,23 +806,6 @@ public sealed class TaskApplicationService
         await NotifyResolvedDependentsAsync(parentTask, now);
         await TryAutoCompleteParentTaskAsync(parentTask.ParentTaskId, eventAgentId, now);
     }
-
-    private static Notification CreateNotification(
-        Guid agentId,
-        NotificationType notificationType,
-        Guid taskId,
-        string message,
-        DateTimeOffset now) =>
-        new()
-        {
-            Id = Guid.NewGuid(),
-            AgentId = agentId,
-            Type = notificationType,
-            TaskId = taskId,
-            Message = message,
-            IsAcknowledged = false,
-            CreatedAt = now
-        };
 
     private static IResult CreateTransitionFailureResult(TaskTransitionValidationResult validation)
     {

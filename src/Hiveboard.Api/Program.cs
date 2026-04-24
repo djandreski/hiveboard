@@ -113,6 +113,7 @@ app.MapTaskStatusEndpoints();
 app.MapTaskDecompositionEndpoints();
 app.MapDependencyEndpoints();
 app.MapDecisionEndpoints();
+app.MapNotificationEndpoints();
 
 app.Run();
 

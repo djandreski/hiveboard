@@ -1,0 +1,1234 @@
+{
+  "info": {
+    "_postman_id": "f4d28b56-1c92-4c4d-9b3e-7a5e2c1f2014",
+    "name": "Hiveboard Task 14 - Notification Engine Verification",
+    "description": "Postman collection for manually verifying Task 14 acceptance criteria from IMPLEMENTATION-GUIDE.md.\n\nRecommended setup:\n1. Start the API in Development mode so EF Core migrations run automatically.\n2. Set HIVEBOARD_ADMIN_KEY before starting the API so it matches the adminApiKey collection variable.\n3. Run the requests top-to-bottom in a single Runner pass; the collection registers its own worker agents and seeds an isolated project, two tasks (A and B), and one decomposition target (C) per run.\n\nValidates the five acceptance criteria:\n- AC1 — agents can poll /api/v1/agents/me/notifications for unacknowledged notifications.\n- AC2 — agents can acknowledge notifications via /api/v1/agents/me/notifications/{id}/ack.\n- AC3 — TaskAssigned, TaskBlocked, ReviewRequested, TaskDecomposed, and DependencyResolved all fire correctly.\n- AC4 — notifications are agent-scoped (Worker-1 and Worker-2 inboxes are disjoint).\n- AC5 — acknowledging another agent's notification returns 404 and does not mutate state.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Health endpoint responds with 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Health payload is healthy', function () {",
+                  "    pm.expect(body.status).to.eql('healthy');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Quick sanity check before the task-specific verification flow."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Setup",
+      "item": [
+        {
+          "name": "Resolve Coordinator Organization",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Coordinator context returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Coordinator credential is admin/coordinator', function () {",
+                  "    pm.expect(body.IsCoordinator || body.isCoordinator).to.eql(true);",
+                  "});",
+                  "",
+                  "const organizationId = body.OrganizationId || body.organizationId;",
+                  "pm.test('Organization id was resolved', function () {",
+                  "    pm.expect(organizationId).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.collectionVariables.set('organizationId', organizationId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "me"]
+            },
+            "description": "Resolves the coordinator's organization id so the rest of the collection can register isolated worker agents."
+          },
+          "response": []
+        },
+        {
+          "name": "Register Worker-1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Worker-1 registration returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('worker1Id', body.id);",
+                  "pm.collectionVariables.set('worker1ApiKey', body.apiKey);",
+                  "",
+                  "pm.test('Worker-1 has an id and a returned plaintext API key', function () {",
+                  "    pm.expect(body.id).to.be.a('string').and.not.empty;",
+                  "    pm.expect(body.apiKey).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Worker-1 (Task 14 {{$timestamp}})\",\n  \"type\": \"worker\",\n  \"platform\": \"claude-code\",\n  \"organizationId\": \"{{organizationId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "register"]
+            },
+            "description": "Registers Worker-1 dynamically so the collection does not depend on dev-seeded keys."
+          },
+          "response": []
+        },
+        {
+          "name": "Register Worker-2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Worker-2 registration returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('worker2Id', body.id);",
+                  "pm.collectionVariables.set('worker2ApiKey', body.apiKey);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Worker-2 (Task 14 {{$timestamp}})\",\n  \"type\": \"worker\",\n  \"platform\": \"claude-code\",\n  \"organizationId\": \"{{organizationId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Isolated Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Project creation returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('projectId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Task 14 Notification QA {{$timestamp}}\",\n  \"description\": \"Isolated project for verifying notification engine.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "projects", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Task A (Setup Auth)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Task A creation returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('taskAId', body.id);",
+                  "pm.test('Task A starts in backlog', function () {",
+                  "    pm.expect(body.status).to.eql('backlog');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Setup Auth\",\n  \"description\": \"Source-of-truth task for assignment, blocked, review, and dependency-resolved scenarios.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "projects", "{{projectId}}", "tasks"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Task B (Wire UI)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Task B creation returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('taskBId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Wire UI\",\n  \"description\": \"Will depend on Setup Auth so completion fires DependencyResolved.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "projects", "{{projectId}}", "tasks"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Task C (Decomposition Target)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Task C creation returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('taskCId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Refactor Module\",\n  \"description\": \"Used to verify TaskDecomposed without entangling Task A's lifecycle.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "projects", "{{projectId}}", "tasks"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "AC3 — TaskAssigned + AC1 Polling",
+      "item": [
+        {
+          "name": "Coordinator Assigns Task A to Worker-1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Assignment returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Task A is now assigned to Worker-1', function () {",
+                  "    pm.expect(body.status).to.eql('assigned');",
+                  "    pm.expect(body.assignedAgentId).to.eql(pm.collectionVariables.get('worker1Id'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assignedAgentId\": \"{{worker1Id}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{taskAId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{taskAId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Coordinator Assigns Task C to Worker-1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Assignment returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assignedAgentId\": \"{{worker1Id}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{taskCId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{taskCId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Worker-1 Polls Inbox — Sees Two TaskAssigned",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('List notifications returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Response is an array', function () {",
+                  "    pm.expect(body).to.be.an('array');",
+                  "});",
+                  "",
+                  "const taskAId = pm.collectionVariables.get('taskAId');",
+                  "const taskCId = pm.collectionVariables.get('taskCId');",
+                  "",
+                  "const assignedForA = body.find(n => n.type === 'TaskAssigned' && n.taskId === taskAId);",
+                  "const assignedForC = body.find(n => n.type === 'TaskAssigned' && n.taskId === taskCId);",
+                  "",
+                  "pm.test('TaskAssigned for Task A is present with task title joined', function () {",
+                  "    pm.expect(assignedForA, 'TaskAssigned for Task A').to.be.an('object');",
+                  "    pm.expect(assignedForA.taskTitle).to.eql('Setup Auth');",
+                  "    pm.expect(assignedForA.message).to.include(\"Setup Auth\");",
+                  "    pm.expect(assignedForA.isAcknowledged).to.eql(false);",
+                  "    pm.expect(assignedForA.id).to.be.a('string').and.not.empty;",
+                  "    pm.expect(assignedForA.createdAt).to.be.a('string').and.not.empty;",
+                  "});",
+                  "",
+                  "pm.test('TaskAssigned for Task C is present', function () {",
+                  "    pm.expect(assignedForC, 'TaskAssigned for Task C').to.be.an('object');",
+                  "    pm.expect(assignedForC.taskTitle).to.eql('Refactor Module');",
+                  "});",
+                  "",
+                  "pm.test('Notifications are ordered by createdAt descending', function () {",
+                  "    for (let i = 0; i < body.length - 1; i++) {",
+                  "        pm.expect(new Date(body[i].createdAt).getTime())",
+                  "            .to.be.at.least(new Date(body[i + 1].createdAt).getTime());",
+                  "    }",
+                  "});",
+                  "",
+                  "// Capture the older TaskAssigned id (Task A) for the Acknowledge test later.",
+                  "pm.collectionVariables.set('worker1AssignedNotificationId', assignedForA.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{worker1ApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/me/notifications/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "me", "notifications", ""]
+            },
+            "description": "AC1 — polling. AC3 — TaskAssigned scenario. Verifies the response shape (id, type, taskId, taskTitle, message, createdAt, isAcknowledged) and descending ordering."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "AC3 — TaskBlocked",
+      "item": [
+        {
+          "name": "Worker-1 Starts Task A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status transition returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{worker1ApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"InProgress\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{taskAId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{taskAId}}", "status"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Worker-1 Blocks Task A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Block transition returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Task A is now blocked', function () {",
+                  "    pm.expect(body.status).to.eql('blocked');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{worker1ApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Blocked\",\n  \"blockedReason\": \"waiting for API design decision\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{taskAId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{taskAId}}", "status"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Coordinator Inbox Has TaskBlocked",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('List notifications returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "const taskAId = pm.collectionVariables.get('taskAId');",
+                  "",
+                  "const blocked = body.find(n => n.type === 'TaskBlocked' && n.taskId === taskAId);",
+                  "pm.test('TaskBlocked notification is present for Task A', function () {",
+                  "    pm.expect(blocked, 'TaskBlocked notification').to.be.an('object');",
+                  "    pm.expect(blocked.taskTitle).to.eql('Setup Auth');",
+                  "    pm.expect(blocked.message).to.include('waiting for API design decision');",
+                  "    pm.expect(blocked.isAcknowledged).to.eql(false);",
+                  "});",
+                  "pm.collectionVariables.set('coordinatorBlockedNotificationId', blocked.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/me/notifications/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "me", "notifications", ""]
+            },
+            "description": "AC3 — TaskBlocked. The coordinator key resolves to the per-org Coordinator audit agent inbox."
+          },
+          "response": []
+        },
+        {
+          "name": "Coordinator Unblocks Task A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Unblock returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Assigned\",\n  \"assignedAgentId\": \"{{worker1Id}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{taskAId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{taskAId}}", "status"]
+            },
+            "description": "Resets Task A back to Assigned so the ReviewRequested flow can run next."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "AC3 — ReviewRequested",
+      "item": [
+        {
+          "name": "Worker-1 Restarts Task A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Restart returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{worker1ApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"InProgress\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{taskAId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{taskAId}}", "status"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Worker-1 Moves Task A to In-Review",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('In-review returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Task A is now in-review', function () {",
+                  "    pm.expect(body.status).to.eql('inreview');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{worker1ApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"InReview\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{taskAId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{taskAId}}", "status"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Coordinator Inbox Has ReviewRequested",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('List notifications returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "const taskAId = pm.collectionVariables.get('taskAId');",
+                  "",
+                  "const review = body.find(n => n.type === 'ReviewRequested' && n.taskId === taskAId);",
+                  "pm.test('ReviewRequested notification is present for Task A', function () {",
+                  "    pm.expect(review, 'ReviewRequested notification').to.be.an('object');",
+                  "    pm.expect(review.taskTitle).to.eql('Setup Auth');",
+                  "    pm.expect(review.isAcknowledged).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/me/notifications/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "me", "notifications", ""]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "AC3 — TaskDecomposed",
+      "item": [
+        {
+          "name": "Worker-1 Decomposes Task C",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Decomposition returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Two backlog subtasks were created', function () {",
+                  "    pm.expect(body).to.be.an('array').with.lengthOf(2);",
+                  "    body.forEach(subtask => pm.expect(subtask.status).to.eql('backlog'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{worker1ApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subtasks\": [\n    { \"title\": \"Identify hot paths\", \"description\": \"\" },\n    { \"title\": \"Extract helper module\", \"description\": \"\" }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{taskCId}}/subtasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{taskCId}}", "subtasks"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Coordinator Inbox Has TaskDecomposed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('List notifications returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "const taskCId = pm.collectionVariables.get('taskCId');",
+                  "",
+                  "const decomposed = body.find(n => n.type === 'TaskDecomposed' && n.taskId === taskCId);",
+                  "pm.test('TaskDecomposed notification is present for Task C', function () {",
+                  "    pm.expect(decomposed, 'TaskDecomposed notification').to.be.an('object');",
+                  "    pm.expect(decomposed.taskTitle).to.eql('Refactor Module');",
+                  "    pm.expect(decomposed.message).to.include('decomposed');",
+                  "    pm.expect(decomposed.message).to.include('Worker-1');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/me/notifications/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "me", "notifications", ""]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "AC3 — DependencyResolved",
+      "item": [
+        {
+          "name": "Coordinator Assigns Task B to Worker-2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Assignment returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assignedAgentId\": \"{{worker2Id}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{taskBId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{taskBId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Coordinator Adds B → A Dependency",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Dependency creation returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dependsOnTaskId\": \"{{taskAId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{taskBId}}/dependencies",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{taskBId}}", "dependencies"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Coordinator Marks Task A Done",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Done transition returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Task A is now done', function () {",
+                  "    pm.expect(body.status).to.eql('done');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Done\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{taskAId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{taskAId}}", "status"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Worker-2 Inbox Has DependencyResolved",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('List notifications returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "const taskBId = pm.collectionVariables.get('taskBId');",
+                  "",
+                  "const resolved = body.find(n => n.type === 'DependencyResolved' && n.taskId === taskBId);",
+                  "pm.test('DependencyResolved notification is present for Task B', function () {",
+                  "    pm.expect(resolved, 'DependencyResolved notification').to.be.an('object');",
+                  "    pm.expect(resolved.taskTitle).to.eql('Wire UI');",
+                  "    pm.expect(resolved.message).to.include('Setup Auth');",
+                  "    pm.expect(resolved.isAcknowledged).to.eql(false);",
+                  "});",
+                  "pm.collectionVariables.set('worker2DependencyNotificationId', resolved.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{worker2ApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/me/notifications/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "me", "notifications", ""]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "AC4 — Agent Scoping",
+      "item": [
+        {
+          "name": "Worker-1 Inbox Has No Worker-2 Notifications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('List notifications returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "const taskBId = pm.collectionVariables.get('taskBId');",
+                  "",
+                  "pm.test('Worker-1 sees TaskAssigned notifications for own tasks (A and C)', function () {",
+                  "    const assignedTasks = body.filter(n => n.type === 'TaskAssigned').map(n => n.taskId);",
+                  "    pm.expect(assignedTasks).to.include(pm.collectionVariables.get('taskAId'));",
+                  "    pm.expect(assignedTasks).to.include(pm.collectionVariables.get('taskCId'));",
+                  "});",
+                  "",
+                  "pm.test('Worker-1 does NOT see DependencyResolved for Task B (Worker-2 inbox)', function () {",
+                  "    const leaks = body.filter(n => n.taskId === taskBId);",
+                  "    pm.expect(leaks).to.have.lengthOf(0);",
+                  "});",
+                  "",
+                  "pm.test('Worker-1 does NOT see coordinator-only notifications', function () {",
+                  "    const coordinatorTypes = body.filter(n => ['TaskBlocked', 'ReviewRequested', 'TaskDecomposed'].includes(n.type));",
+                  "    pm.expect(coordinatorTypes).to.have.lengthOf(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{worker1ApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/me/notifications/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "me", "notifications", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Worker-2 Inbox Has Only Own Notifications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('List notifications returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "const taskAId = pm.collectionVariables.get('taskAId');",
+                  "const taskCId = pm.collectionVariables.get('taskCId');",
+                  "",
+                  "pm.test('Worker-2 does NOT see Worker-1 task notifications', function () {",
+                  "    const leaks = body.filter(n => n.taskId === taskAId || n.taskId === taskCId);",
+                  "    pm.expect(leaks).to.have.lengthOf(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{worker2ApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/me/notifications/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "me", "notifications", ""]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "AC2 — Acknowledge",
+      "item": [
+        {
+          "name": "Worker-1 Acknowledges TaskAssigned for Task A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Acknowledge returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Response confirms acknowledgement', function () {",
+                  "    pm.expect(body.id).to.eql(pm.collectionVariables.get('worker1AssignedNotificationId'));",
+                  "    pm.expect(body.isAcknowledged).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{worker1ApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/me/notifications/{{worker1AssignedNotificationId}}/ack",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "me", "notifications", "{{worker1AssignedNotificationId}}", "ack"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Worker-1 Inbox No Longer Includes Acknowledged Notification",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Re-poll returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "const ackId = pm.collectionVariables.get('worker1AssignedNotificationId');",
+                  "pm.test('Acknowledged notification is no longer returned', function () {",
+                  "    const stillThere = body.some(n => n.id === ackId);",
+                  "    pm.expect(stillThere).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{worker1ApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/me/notifications/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "me", "notifications", ""]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "AC5 — Foreign Acknowledge Returns 404",
+      "item": [
+        {
+          "name": "Worker-1 Tries to Ack Worker-2's Notification",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Foreign acknowledgement returns 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{worker1ApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/me/notifications/{{worker2DependencyNotificationId}}/ack",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "me", "notifications", "{{worker2DependencyNotificationId}}", "ack"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Worker-1 Tries to Ack Nonexistent Notification",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Nonexistent acknowledgement returns 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{worker1ApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/me/notifications/00000000-0000-0000-0000-000000000000/ack",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "me", "notifications", "00000000-0000-0000-0000-000000000000", "ack"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Worker-2 Notification Is Still Unacknowledged",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('List notifications returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "const targetId = pm.collectionVariables.get('worker2DependencyNotificationId');",
+                  "const target = body.find(n => n.id === targetId);",
+                  "pm.test('Worker-2 notification was not mutated by foreign ack attempt', function () {",
+                  "    pm.expect(target, 'target notification still in unacknowledged list').to.be.an('object');",
+                  "    pm.expect(target.isAcknowledged).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{worker2ApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/me/notifications/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "me", "notifications", ""]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000", "type": "string" },
+    { "key": "adminApiKey", "value": "hb_adm_replace_with_HIVEBOARD_ADMIN_KEY", "type": "string" },
+    { "key": "organizationId", "value": "", "type": "string" },
+    { "key": "worker1Id", "value": "", "type": "string" },
+    { "key": "worker1ApiKey", "value": "", "type": "string" },
+    { "key": "worker2Id", "value": "", "type": "string" },
+    { "key": "worker2ApiKey", "value": "", "type": "string" },
+    { "key": "projectId", "value": "", "type": "string" },
+    { "key": "taskAId", "value": "", "type": "string" },
+    { "key": "taskBId", "value": "", "type": "string" },
+    { "key": "taskCId", "value": "", "type": "string" },
+    { "key": "worker1AssignedNotificationId", "value": "", "type": "string" },
+    { "key": "coordinatorBlockedNotificationId", "value": "", "type": "string" },
+    { "key": "worker2DependencyNotificationId", "value": "", "type": "string" }
+  ]
+}
