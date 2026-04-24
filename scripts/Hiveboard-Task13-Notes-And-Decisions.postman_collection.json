@@ -1,0 +1,858 @@
+{
+  "info": {
+    "_postman_id": "e3c47a45-2ea3-4b35-8b8f-2a7b5acb7c13",
+    "name": "Hiveboard Task 13 - Notes and Decisions Verification",
+    "description": "Postman collection for manually verifying Task 13 acceptance criteria from IMPLEMENTATION-GUIDE.md.\n\nRecommended setup:\n1. Start the API in Development mode so the dev seeder can create the default organization and worker agents.\n2. Set HIVEBOARD_ADMIN_KEY before starting the API so it matches the adminApiKey collection variable.\n3. If your local DB is not freshly seeded, update worker1ApiKey and worker2ApiKey to valid active agent keys in the same organization.\n\nThe collection creates an isolated project and task for each run, then verifies:\n- workers and the coordinator can add task notes\n- note responses include author metadata\n- note_added task events are recorded\n- decisions can be created as task-linked and standalone records\n- markdown content is preserved\n- project decision listing and filtering work as expected",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Health endpoint responds with 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('Health payload is healthy', function () {",
+                  "    pm.expect(body.status).to.eql('healthy');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Quick sanity check before the task-specific verification flow."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Setup",
+      "item": [
+        {
+          "name": "Create Isolated Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Project creation returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('projectId', body.id);",
+                  "",
+                  "pm.test('Project id was captured', function () {",
+                  "    pm.expect(body.id).to.be.a('string').and.not.empty;",
+                  "});",
+                  "",
+                  "pm.test('Project is active', function () {",
+                  "    pm.expect(body.status).to.eql('active');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{adminApiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Task 13 Manual Verification {{$timestamp}}\",\n  \"description\": \"Isolated project for verifying notes and decision records endpoints.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projects",
+                ""
+              ]
+            },
+            "description": "Creates a clean project so the collection can assert exact counts and ordering without interference from previous runs."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Isolated Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Task creation returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('taskId', body.id);",
+                  "",
+                  "pm.test('Task id was captured', function () {",
+                  "    pm.expect(body.id).to.be.a('string').and.not.empty;",
+                  "});",
+                  "",
+                  "pm.test('Task starts in backlog', function () {",
+                  "    pm.expect(body.status).to.eql('backlog');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{adminApiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Task 13 manual verification task\",\n  \"description\": \"Used to manually verify note and decision endpoints.\",\n  \"epicId\": null,\n  \"parentTaskId\": null,\n  \"metadata\": {\n    \"source\": \"postman-task-13\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projects",
+                "{{projectId}}",
+                "tasks"
+              ]
+            },
+            "description": "Creates the task that will receive notes and linked decisions."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Notes",
+      "item": [
+        {
+          "name": "Worker Adds Context Note",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Worker note returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('workerNoteId', body.id);",
+                  "",
+                  "pm.test('Worker note is attributed correctly', function () {",
+                  "    pm.expect(body.taskId).to.eql(pm.collectionVariables.get('taskId'));",
+                  "    pm.expect(body.agentName).to.eql('Worker-1');",
+                  "    pm.expect(body.agentType).to.eql('worker');",
+                  "    pm.expect(body.noteType).to.eql('context');",
+                  "});",
+                  "",
+                  "pm.test('Worker note preserves markdown', function () {",
+                  "    pm.expect(body.content).to.include('## Context');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{worker1ApiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"## Context\\nWorker started implementation.\",\n  \"noteType\": \"Context\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{taskId}}/notes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks",
+                "{{taskId}}",
+                "notes"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Coordinator Adds Review Request Note",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Coordinator note returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('coordinatorNoteId', body.id);",
+                  "",
+                  "pm.test('Coordinator note is attributed correctly', function () {",
+                  "    pm.expect(body.agentName).to.eql('Coordinator');",
+                  "    pm.expect(body.agentType).to.eql('orchestrator');",
+                  "    pm.expect(body.noteType).to.eql('reviewrequest');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{adminApiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Need a review pass once the contract is stable.\",\n  \"noteType\": \"ReviewRequest\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{taskId}}/notes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks",
+                "{{taskId}}",
+                "notes"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Task Notes As Another Worker",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('List notes returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('Exactly two notes exist for the isolated task', function () {",
+                  "    pm.expect(body).to.be.an('array').with.lengthOf(2);",
+                  "});",
+                  "",
+                  "pm.test('Notes are returned in creation order', function () {",
+                  "    pm.expect(body[0].id).to.eql(pm.collectionVariables.get('workerNoteId'));",
+                  "    pm.expect(body[1].id).to.eql(pm.collectionVariables.get('coordinatorNoteId'));",
+                  "});",
+                  "",
+                  "pm.test('Each note includes author metadata', function () {",
+                  "    body.forEach(function (note) {",
+                  "        pm.expect(note.agentName).to.be.a('string').and.not.empty;",
+                  "        pm.expect(note.agentType).to.be.a('string').and.not.empty;",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{worker2ApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{taskId}}/notes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks",
+                "{{taskId}}",
+                "notes"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Task Context And Verify note_added Events",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Task context returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "const noteEvents = body.events.filter(function (taskEvent) {",
+                  "    return taskEvent.eventType === 'note_added';",
+                  "});",
+                  "const eventTypes = noteEvents.map(function (taskEvent) {",
+                  "    return taskEvent.newValue;",
+                  "});",
+                  "",
+                  "pm.test('A note_added event exists for each created note', function () {",
+                  "    pm.expect(noteEvents).to.have.lengthOf(2);",
+                  "});",
+                  "",
+                  "pm.test('Recorded note types match the created notes', function () {",
+                  "    pm.expect(eventTypes).to.include('context');",
+                  "    pm.expect(eventTypes).to.include('reviewrequest');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{worker1ApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{taskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "tasks",
+                "{{taskId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Decisions",
+      "item": [
+        {
+          "name": "Create Task-Linked Decision As Worker",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Linked decision returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('linkedDecisionId', body.id);",
+                  "",
+                  "pm.test('Decision is linked to the task and marked proposed', function () {",
+                  "    pm.expect(body.projectId).to.eql(pm.collectionVariables.get('projectId'));",
+                  "    pm.expect(body.taskId).to.eql(pm.collectionVariables.get('taskId'));",
+                  "    pm.expect(body.status).to.eql('proposed');",
+                  "});",
+                  "",
+                  "pm.test('Decision content preserves markdown', function () {",
+                  "    pm.expect(body.content).to.include('## Rationale');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{worker1ApiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Keep note handling inside the API service layer\",\n  \"content\": \"## Rationale\\n- Reuse current API patterns\\n- Preserve markdown unchanged\",\n  \"taskId\": \"{{taskId}}\",\n  \"status\": \"Proposed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/{{projectId}}/decisions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projects",
+                "{{projectId}}",
+                "decisions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Standalone Decision As Coordinator",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Standalone decision returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('standaloneDecisionId', body.id);",
+                  "",
+                  "pm.test('Standalone decision has no task and is coordinator-authored', function () {",
+                  "    pm.expect(body.taskId).to.eql(null);",
+                  "    pm.expect(body.agentName).to.eql('Coordinator');",
+                  "    pm.expect(body.status).to.eql('accepted');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{adminApiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Expose project decisions to all agents\",\n  \"content\": \"Accepted so workers can read architectural context directly.\",\n  \"taskId\": null,\n  \"status\": \"Accepted\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/{{projectId}}/decisions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projects",
+                "{{projectId}}",
+                "decisions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Accepted Task Decision As Worker",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Accepted task decision returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('acceptedTaskDecisionId', body.id);",
+                  "",
+                  "pm.test('Accepted task decision is linked and marked accepted', function () {",
+                  "    pm.expect(body.taskId).to.eql(pm.collectionVariables.get('taskId'));",
+                  "    pm.expect(body.status).to.eql('accepted');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{worker1ApiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Link implementation rationale to the task\",\n  \"content\": \"Accepted for the current task so reviewers can see the tradeoffs.\",\n  \"taskId\": \"{{taskId}}\",\n  \"status\": \"Accepted\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/{{projectId}}/decisions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projects",
+                "{{projectId}}",
+                "decisions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Project Decisions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('List decisions returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "const decisionIds = body.map(function (decision) { return decision.id; });",
+                  "const timestamps = body.map(function (decision) { return Date.parse(decision.createdAt); });",
+                  "",
+                  "pm.test('Exactly three decisions exist for the isolated project', function () {",
+                  "    pm.expect(body).to.be.an('array').with.lengthOf(3);",
+                  "});",
+                  "",
+                  "pm.test('All created decisions are present', function () {",
+                  "    pm.expect(decisionIds).to.include(pm.collectionVariables.get('linkedDecisionId'));",
+                  "    pm.expect(decisionIds).to.include(pm.collectionVariables.get('standaloneDecisionId'));",
+                  "    pm.expect(decisionIds).to.include(pm.collectionVariables.get('acceptedTaskDecisionId'));",
+                  "});",
+                  "",
+                  "pm.test('Decision list is sorted newest first', function () {",
+                  "    for (let i = 1; i < timestamps.length; i += 1) {",
+                  "        pm.expect(timestamps[i - 1]).to.be.at.least(timestamps[i]);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{worker1ApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/{{projectId}}/decisions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projects",
+                "{{projectId}}",
+                "decisions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Filter Accepted Decisions By Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Filtered decision query returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('Status + task filter returns the accepted linked decision only', function () {",
+                  "    pm.expect(body).to.be.an('array').with.lengthOf(1);",
+                  "    pm.expect(body[0].id).to.eql(pm.collectionVariables.get('acceptedTaskDecisionId'));",
+                  "    pm.expect(body[0].status).to.eql('accepted');",
+                  "    pm.expect(body[0].taskId).to.eql(pm.collectionVariables.get('taskId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{worker1ApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/{{projectId}}/decisions?status=Accepted&taskId={{taskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "projects",
+                "{{projectId}}",
+                "decisions"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "Accepted"
+                },
+                {
+                  "key": "taskId",
+                  "value": "{{taskId}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Linked Decision By Id As Another Worker",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Single decision lookup returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('Fetched decision matches the worker-authored linked decision', function () {",
+                  "    pm.expect(body.id).to.eql(pm.collectionVariables.get('linkedDecisionId'));",
+                  "    pm.expect(body.agentName).to.eql('Worker-1');",
+                  "    pm.expect(body.agentType).to.eql('worker');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{worker2ApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/decisions/{{linkedDecisionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "decisions",
+                "{{linkedDecisionId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "adminApiKey",
+      "value": "hb_sk_manual_admin_1234567890",
+      "type": "string"
+    },
+    {
+      "key": "worker1ApiKey",
+      "value": "dev-worker-key-123",
+      "type": "string"
+    },
+    {
+      "key": "worker2ApiKey",
+      "value": "dev-worker-key-456",
+      "type": "string"
+    },
+    {
+      "key": "projectId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "taskId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "workerNoteId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "coordinatorNoteId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "linkedDecisionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "standaloneDecisionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "acceptedTaskDecisionId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

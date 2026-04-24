@@ -968,7 +968,7 @@ Read PRD-Hiveboard.md sections 5.3 (POST /tasks/{id}/subtasks) and 6.3 (Task Dec
 ---
 
 ### Task 13 — Notes & Decision Records Endpoints
-**Status:** Implementing
+**Status:** Implemented
 
 **Goal:** Implement task notes and project-level decision record endpoints.
 
@@ -1023,19 +1023,19 @@ Read PRD-Hiveboard.md sections 4.2 (TaskNote, DecisionRecord) and 5.3 (Notes, De
 ```
 
 **Acceptance Criteria:**
-- [ ] Can add notes to tasks (both coordinator and worker)
-- [ ] Notes include agent name in response
-- [ ] Can create decision records linked to tasks or standalone
-- [ ] Decision records support free-form markdown content
-- [ ] Can filter decisions by status and task
-- [ ] TaskEvent is created when a note is added
+- [x] Can add notes to tasks (both coordinator and worker)
+- [x] Notes include agent name in response
+- [x] Can create decision records linked to tasks or standalone
+- [x] Decision records support free-form markdown content
+- [x] Can filter decisions by status and task
+- [x] TaskEvent is created when a note is added
 
 ---
 
 ## Phase 3: Coordination + Intelligence
 
 ### Task 14 — Notification Engine
-**Status:** Pending
+**Status:** Implementing
 
 **Goal:** Implement the notification polling endpoint and ensure all coordinator/worker notification triggers from previous tasks are working correctly.
 

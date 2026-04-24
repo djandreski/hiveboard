@@ -108,9 +108,11 @@ app.MapAdminKeyEndpoints();
 app.MapProjectEndpoints();
 app.MapEpicEndpoints();
 app.MapTaskEndpoints();
+app.MapTaskNoteEndpoints();
 app.MapTaskStatusEndpoints();
 app.MapTaskDecompositionEndpoints();
 app.MapDependencyEndpoints();
+app.MapDecisionEndpoints();
 
 app.Run();
 
