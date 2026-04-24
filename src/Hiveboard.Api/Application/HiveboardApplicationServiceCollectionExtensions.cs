@@ -16,7 +16,9 @@ public static class HiveboardApplicationServiceCollectionExtensions
         services.AddScoped<ICoordinatorScopeResolver, CoordinatorScopeResolver>();
         services.AddScoped<AdminKeyProvider>();
         services.AddScoped<IDependencyRepository, EfCoreDependencyRepository>();
+        services.AddScoped<INotificationRepository, EfCoreNotificationRepository>();
         services.AddScoped<DependencyService>();
+        services.AddScoped<NotificationService>();
         services.AddScoped<TaskStateMachine>();
         services.AddScoped<AgentApplicationService>();
         services.AddScoped<DependencyApplicationService>();
@@ -24,6 +26,7 @@ public static class HiveboardApplicationServiceCollectionExtensions
         services.AddScoped<EpicApplicationService>();
         services.AddScoped<TaskApplicationService>();
         services.AddScoped<NotesAndDecisionsApplicationService>();
+        services.AddScoped<NotificationApplicationService>();
 
         return services;
     }
