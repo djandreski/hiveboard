@@ -43,3 +43,8 @@ This repository is a .NET 10 + React monorepo for Hiveboard. Use this file as th
 
 - Summarize the files changed, commands run, and any blockers.
 - Call out anything that could affect other agents working in parallel.
+
+## Manual testing
+
+- Give me a guide as an output for manual testing to validate that acceptance criteria are met after each task from the implementation guide is implemented
+- Translate that guide into a Postman collection in the scripts folder
