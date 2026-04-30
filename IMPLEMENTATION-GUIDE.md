@@ -1111,7 +1111,7 @@ Read PRD-Hiveboard.md section 7 (Notification System).
 ---
 
 ### Task 15 — Full Task Context Assembly
-**Status:** Implementing
+**Status:** Implemented
 
 **Goal:** Ensure the GET /tasks/{id} endpoint returns the complete, rich context bundle that agents and human coordinators need.
 
@@ -1165,18 +1165,18 @@ The response must include EVERYTHING a coordinator or worker needs.
 ```
 
 **Acceptance Criteria:**
-- [ ] GET /tasks/{id} returns complete nested response matching PRD section 5.4
-- [ ] All relationships are populated (epic, parent, subtasks, dependencies, notes, events, decisions)
-- [ ] No N+1 query issues (check SQL output with logging)
-- [ ] GET /agents/me includes assigned tasks and notification count
-- [ ] Null fields are handled gracefully (no errors when epic/parent is null)
+- [x] GET /tasks/{id} returns complete nested response matching PRD section 5.4
+- [x] All relationships are populated (epic, parent, subtasks, dependencies, notes, events, decisions)
+- [x] No N+1 query issues (check SQL output with logging)
+- [x] GET /agents/me includes assigned tasks and notification count
+- [x] Null fields are handled gracefully (no errors when epic/parent is null)
 
 ---
 
 ## Phase 4: MCP + Control Plane
 
 ### Task 16 — MCP Server Interface
-**Status:** Pending
+**Status:** Implementing
 
 **Goal:** Expose Hiveboard functionality via MCP (Model Context Protocol) so worker agents and optional co-orchestrator agents can integrate with zero custom code.
 

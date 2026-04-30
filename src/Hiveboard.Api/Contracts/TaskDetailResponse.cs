@@ -2,6 +2,7 @@ namespace Hiveboard.Api.Contracts;
 
 public record TaskDetailResponse(
     TaskContextTaskResponse Task,
+    TaskContextProjectResponse Project,
     TaskContextEpicResponse? Epic,
     TaskContextParentTaskResponse? ParentTask,
     IReadOnlyList<TaskContextSubtaskResponse> Subtasks,
@@ -24,9 +25,12 @@ public record TaskContextTaskResponse(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);
 
+public record TaskContextProjectResponse(Guid Id, string Name);
+
 public record TaskContextEpicResponse(
     Guid Id,
     string Title,
+    string Description,
     string Status);
 
 public record TaskContextParentTaskResponse(
@@ -39,6 +43,7 @@ public record TaskContextSubtaskResponse(
     string Title,
     string Status,
     Guid? AssignedAgentId,
+    string? AssignedAgentName,
     DateTimeOffset UpdatedAt);
 
 public record TaskContextDependenciesResponse(
@@ -53,6 +58,7 @@ public record TaskContextDependencyTaskResponse(
 
 public record TaskContextNoteResponse(
     string Agent,
+    string AgentType,
     string Type,
     string Content,
     DateTimeOffset CreatedAt);

@@ -268,14 +268,23 @@ public class TaskCrudAssignmentIntegrationTests
         Assert.NotNull(detail.ParentTask);
         Assert.Equal(parentTask.Id, detail.ParentTask!.Id);
 
-        Assert.Contains(detail.Subtasks, subtask => subtask.Id == contextFixtureIds.SubtaskId);
+        Assert.NotNull(detail.Project);
+        Assert.Equal(project.Id, detail.Project.Id);
+        Assert.Equal(project.Name, detail.Project.Name);
+
+        Assert.Contains(detail.Subtasks, subtask =>
+            subtask.Id == contextFixtureIds.SubtaskId &&
+            subtask.AssignedAgentName == workerA.Name);
         Assert.Contains(detail.Dependencies.BlockedBy, dependency =>
             dependency.TaskId == contextFixtureIds.BlockedByTaskId &&
             dependency.DepId == contextFixtureIds.BlockedByDependencyId);
         Assert.Contains(detail.Dependencies.Blocking, dependency =>
             dependency.TaskId == contextFixtureIds.BlockingTaskId &&
             dependency.DepId == contextFixtureIds.BlockingDependencyId);
-        Assert.Contains(detail.Notes, note => note.Agent == workerA.Name && note.Type == "context");
+        Assert.Contains(detail.Notes, note =>
+            note.Agent == workerA.Name &&
+            note.AgentType == "worker" &&
+            note.Type == "context");
         Assert.Contains(detail.Events, taskEvent => taskEvent.EventType == "assigned");
         Assert.Contains(detail.RelatedDecisions, decision => decision.Id == contextFixtureIds.DecisionId);
     }

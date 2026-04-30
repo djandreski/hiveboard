@@ -17,19 +17,22 @@ public sealed class TaskApplicationService
     private readonly IAgentAccessGuard _accessGuard;
     private readonly TaskStateMachine _taskStateMachine;
     private readonly NotificationService _notificationService;
+    private readonly TaskContextService _taskContextService;
 
     public TaskApplicationService(
         HiveboardDbContext db,
         AgentContext agentContext,
         IAgentAccessGuard accessGuard,
         TaskStateMachine taskStateMachine,
-        NotificationService notificationService)
+        NotificationService notificationService,
+        TaskContextService taskContextService)
     {
         _db = db;
         _agentContext = agentContext;
         _accessGuard = accessGuard;
         _taskStateMachine = taskStateMachine;
         _notificationService = notificationService;
+        _taskContextService = taskContextService;
     }
 
     public async Task<IResult> ListProjectTasksAsync(
@@ -167,32 +170,23 @@ public sealed class TaskApplicationService
         if (scopeError is not null)
             return scopeError;
 
-        var task = await _db.AgentTasks
+        var organizationId = await _db.AgentTasks
             .AsNoTracking()
-            .AsSplitQuery()
-            .Include(candidate => candidate.Project)
-            .Include(candidate => candidate.Epic)
-            .Include(candidate => candidate.ParentTask)
-            .Include(candidate => candidate.Subtasks)
-            .Include(candidate => candidate.Dependencies)
-                .ThenInclude(dependency => dependency.DependsOnTask)
-            .Include(candidate => candidate.DependentTasks)
-                .ThenInclude(dependency => dependency.Task)
-            .Include(candidate => candidate.Notes)
-                .ThenInclude(note => note.Agent)
-            .Include(candidate => candidate.Events)
-                .ThenInclude(taskEvent => taskEvent.Agent)
-            .Include(candidate => candidate.Decisions)
-                .ThenInclude(decision => decision.Agent)
-            .FirstOrDefaultAsync(candidate => candidate.Id == taskId);
+            .Where(candidate => candidate.Id == taskId)
+            .Select(candidate => (Guid?)candidate.Project!.OrganizationId)
+            .FirstOrDefaultAsync();
 
-        if (task is null)
+        if (organizationId is null)
             return Results.NotFound(new { error = "Task not found" });
 
-        if (task.Project?.OrganizationId != _agentContext.OrganizationId)
+        if (organizationId.Value != _agentContext.OrganizationId)
             return Forbidden("Task belongs to a different organization");
 
-        return Results.Ok(ToTaskDetailResponse(task));
+        var context = await _taskContextService.GetFullContextAsync(taskId);
+        if (context is null)
+            return Results.NotFound(new { error = "Task not found" });
+
+        return Results.Ok(ToTaskDetailResponse(context));
     }
 
     public async Task<IResult> UpdateTaskAsync(Guid taskId, UpdateTaskRequest? request)
@@ -543,95 +537,91 @@ public sealed class TaskApplicationService
             task.CreatedAt,
             task.UpdatedAt);
 
-    private static TaskDetailResponse ToTaskDetailResponse(AgentTask task)
+    private static TaskDetailResponse ToTaskDetailResponse(TaskContext context)
     {
-        var blockedBy = task.Dependencies
-            .Where(dependency => dependency.DependsOnTask is not null)
-            .OrderBy(dependency => dependency.DependsOnTask!.CreatedAt)
-            .Select(dependency => new TaskContextDependencyTaskResponse(
-                dependency.DependsOnTaskId,
-                dependency.DependsOnTask!.Title,
-                ToApiValue(dependency.DependsOnTask.Status),
-                dependency.Id))
-            .ToList();
-
-        var blocking = task.DependentTasks
-            .Where(dependency => dependency.Task is not null)
-            .OrderBy(dependency => dependency.Task!.CreatedAt)
+        var blockedBy = context.Dependencies.BlockedBy
             .Select(dependency => new TaskContextDependencyTaskResponse(
                 dependency.TaskId,
-                dependency.Task!.Title,
-                ToApiValue(dependency.Task.Status),
-                dependency.Id))
+                dependency.Title,
+                ToApiValue(dependency.Status),
+                dependency.DepId))
             .ToList();
 
-        var subtasks = task.Subtasks
-            .OrderBy(subtask => subtask.CreatedAt)
+        var blocking = context.Dependencies.Blocking
+            .Select(dependency => new TaskContextDependencyTaskResponse(
+                dependency.TaskId,
+                dependency.Title,
+                ToApiValue(dependency.Status),
+                dependency.DepId))
+            .ToList();
+
+        var subtasks = context.Subtasks
             .Select(subtask => new TaskContextSubtaskResponse(
                 subtask.Id,
                 subtask.Title,
                 ToApiValue(subtask.Status),
                 subtask.AssignedAgentId,
+                subtask.AssignedAgentName,
                 subtask.UpdatedAt))
             .ToList();
 
-        var notes = task.Notes
-            .OrderBy(note => note.CreatedAt)
+        var notes = context.Notes
             .Select(note => new TaskContextNoteResponse(
-                note.Agent?.Name ?? string.Empty,
+                note.AgentName,
+                ToApiValue(note.AgentType),
                 ToApiValue(note.NoteType),
                 note.Content,
                 note.CreatedAt))
             .ToList();
 
-        var events = task.Events
-            .OrderBy(taskEvent => taskEvent.Timestamp)
+        var events = context.Events
             .Select(taskEvent => new TaskContextEventResponse(
                 taskEvent.Id,
                 taskEvent.EventType,
                 taskEvent.OldValue,
                 taskEvent.NewValue,
-                taskEvent.Agent?.Name ?? "Coordinator",
+                taskEvent.AgentName,
                 taskEvent.Timestamp))
             .ToList();
 
-        var decisions = task.Decisions
-            .OrderBy(decision => decision.CreatedAt)
+        var decisions = context.RelatedDecisions
             .Select(decision => new TaskContextDecisionResponse(
                 decision.Id,
                 decision.Title,
                 decision.Content,
                 ToApiValue(decision.Status),
-                decision.Agent?.Name ?? string.Empty,
+                decision.AgentName,
                 decision.CreatedAt))
             .ToList();
 
         return new TaskDetailResponse(
             new TaskContextTaskResponse(
-                task.Id,
-                task.ProjectId,
-                task.EpicId,
-                task.ParentTaskId,
-                task.AssignedAgentId,
-                task.Title,
-                task.Description,
-                ToApiValue(task.Status),
-                task.BlockedReason,
-                new Dictionary<string, string>(task.Metadata),
-                task.CreatedAt,
-                task.UpdatedAt),
-            task.Epic is null
+                context.Task.Id,
+                context.Task.ProjectId,
+                context.Task.EpicId,
+                context.Task.ParentTaskId,
+                context.Task.AssignedAgentId,
+                context.Task.Title,
+                context.Task.Description,
+                ToApiValue(context.Task.Status),
+                context.Task.BlockedReason,
+                context.Task.Metadata,
+                context.Task.CreatedAt,
+                context.Task.UpdatedAt),
+            new TaskContextProjectResponse(context.Project.Id, context.Project.Name),
+            context.Epic is null
                 ? null
                 : new TaskContextEpicResponse(
-                    task.Epic.Id,
-                    task.Epic.Title,
-                    ToApiValue(task.Epic.Status)),
-            task.ParentTask is null
+                    context.Epic.Id,
+                    context.Epic.Title,
+                    context.Epic.Description,
+                    ToApiValue(context.Epic.Status)),
+            context.ParentTask is null
                 ? null
                 : new TaskContextParentTaskResponse(
-                    task.ParentTask.Id,
-                    task.ParentTask.Title,
-                    ToApiValue(task.ParentTask.Status)),
+                    context.ParentTask.Id,
+                    context.ParentTask.Title,
+                    ToApiValue(context.ParentTask.Status)),
             subtasks,
             new TaskContextDependenciesResponse(blockedBy, blocking),
             notes,

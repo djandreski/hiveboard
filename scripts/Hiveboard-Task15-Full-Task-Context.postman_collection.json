@@ -1,0 +1,1381 @@
+{
+  "info": {
+    "_postman_id": "b4e1a2f6-9c3d-4b6f-8e9a-1c5d7e2a8b30",
+    "name": "Hiveboard Task 15 - Full Task Context Assembly Verification",
+    "description": "Postman collection for manually verifying Task 15 acceptance criteria from IMPLEMENTATION-GUIDE.md.\n\nRecommended setup:\n1. Start the API in Development mode so EF Core migrations run automatically.\n2. Set HIVEBOARD_ADMIN_KEY before starting the API so it matches the adminApiKey collection variable.\n3. Run the requests top-to-bottom in a single Runner pass; the collection registers its own worker, seeds an isolated project + epic + parent task + focal task + dependency tasks + subtask + decision per run.\n\nValidates the five Task 15 acceptance criteria:\n- AC1 — GET /tasks/{id} returns the complete nested response shape from PRD section 5.4 (task, project, epic, parentTask, subtasks, dependencies, notes, events, relatedDecisions).\n- AC2 — All relationships are populated when the focal task has them: epic + parent + subtasks (with assignedAgentName) + blockedBy/blocking + notes (with agentType) + events + relatedDecisions.\n- AC3 — No N+1 query issues. This is best verified by enabling EF Core 'Microsoft.EntityFrameworkCore.Database.Command' Information logging and watching that the SELECT count is bounded and stable across calls. The 'AC3 — N+1 stability probe' folder fires the endpoint twice with extra notes in between so you can compare SQL log lines side-by-side.\n- AC4 — GET /agents/me for a worker returns identity, currently assigned tasks, and unacknowledgedNotificationCount that decreases when notifications are acknowledged.\n- AC5 — Null relationships (epic/parent/subtasks/dependencies/notes/events/decisions) are returned as null/[] rather than throwing.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Health endpoint responds with 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Health payload is healthy', function () {",
+                  "    pm.expect(body.status).to.eql('healthy');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Quick sanity check before the task-specific verification flow."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Setup",
+      "item": [
+        {
+          "name": "Resolve Coordinator Organization",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Coordinator context returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Coordinator credential is admin/coordinator', function () {",
+                  "    pm.expect(body.IsCoordinator || body.isCoordinator).to.eql(true);",
+                  "});",
+                  "",
+                  "const organizationId = body.OrganizationId || body.organizationId;",
+                  "pm.test('Organization id was resolved', function () {",
+                  "    pm.expect(organizationId).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.collectionVariables.set('organizationId', organizationId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "me"]
+            },
+            "description": "Resolves the coordinator's organization id so the rest of the collection can register isolated worker agents."
+          },
+          "response": []
+        },
+        {
+          "name": "Register Worker-T15",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Worker registration returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('workerId', body.id);",
+                  "pm.collectionVariables.set('workerApiKey', body.apiKey);",
+                  "pm.collectionVariables.set('workerName', body.name);",
+                  "",
+                  "pm.test('Worker has an id, plaintext API key, and a name', function () {",
+                  "    pm.expect(body.id).to.be.a('string').and.not.empty;",
+                  "    pm.expect(body.apiKey).to.be.a('string').and.not.empty;",
+                  "    pm.expect(body.name).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Worker-T15 ({{$timestamp}})\",\n  \"type\": \"worker\",\n  \"platform\": \"claude-code\",\n  \"organizationId\": \"{{organizationId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "register"]
+            },
+            "description": "Registers the worker that will receive task assignments, write a note, and own a subtask. Plaintext API key is captured for subsequent worker-authenticated calls."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Isolated Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Project creation returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('projectId', body.id);",
+                  "pm.collectionVariables.set('projectName', body.name);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Task 15 Context QA ({{$timestamp}})\",\n  \"description\": \"Isolated project for verifying full task context assembly.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "projects", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Epic",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Epic creation returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('epicId', body.id);",
+                  "pm.collectionVariables.set('epicTitle', body.title);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"T15 Auth Epic\",\n  \"description\": \"Epic that owns the focal task for context verification.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/{{projectId}}/epics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "projects", "{{projectId}}", "epics"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Parent Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Parent task creation returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('parentTaskId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"T15 Parent Task\",\n  \"description\": \"Parent of the focal task so context.parentTask is populated.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "projects", "{{projectId}}", "tasks"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Predecessor Task (Blocked-By)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Predecessor task creation returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('predecessorTaskId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Predecessor\",\n  \"description\": \"Will be marked done so it appears under dependencies.blockedBy with status 'done'.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "projects", "{{projectId}}", "tasks"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Focal Task (Epic + Parent + Metadata)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Focal task creation returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('focalTaskId', body.id);",
+                  "pm.test('Focal task starts in backlog with epic + parent set', function () {",
+                  "    pm.expect(body.status).to.eql('backlog');",
+                  "    pm.expect(body.epicId).to.eql(pm.collectionVariables.get('epicId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Implement Auth Module\",\n  \"description\": \"Focal task — verifies the full task context bundle.\",\n  \"epicId\": \"{{epicId}}\",\n  \"parentTaskId\": \"{{parentTaskId}}\",\n  \"metadata\": {\n    \"branch\": \"feature/auth-module\",\n    \"pr_url\": \"\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "projects", "{{projectId}}", "tasks"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Successor Task (Blocking)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Successor task creation returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('successorTaskId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Successor\",\n  \"description\": \"Will depend on the focal task so it appears under dependencies.blocking with status 'backlog'.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "projects", "{{projectId}}", "tasks"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Bare Task (For AC5 Null Handling)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Bare task creation returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('bareTaskId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Bare task\",\n  \"description\": \"No epic, no parent, no dependencies, no notes, no decisions — for AC5.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/{{projectId}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "projects", "{{projectId}}", "tasks"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Dependency: Focal Blocked By Predecessor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Dependency creation returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dependsOnTaskId\": \"{{predecessorTaskId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{focalTaskId}}/dependencies",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{focalTaskId}}", "dependencies"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Dependency: Successor Blocked By Focal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Dependency creation returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dependsOnTaskId\": \"{{focalTaskId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{successorTaskId}}/dependencies",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{successorTaskId}}", "dependencies"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Assign Predecessor to Worker",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Predecessor assignment returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assignedAgentId\": \"{{workerId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{predecessorTaskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{predecessorTaskId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Worker Starts Predecessor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Predecessor in-progress returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{workerApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"InProgress\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{predecessorTaskId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{predecessorTaskId}}", "status"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Worker Marks Predecessor Done",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Predecessor done returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Predecessor is now done so focal can move out of backlog', function () {",
+                  "    pm.expect(body.status).to.eql('done');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{workerApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Done\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{predecessorTaskId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{predecessorTaskId}}", "status"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Coordinator Assigns Focal Task to Worker",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Focal assignment returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Focal task is now assigned to the worker', function () {",
+                  "    pm.expect(body.status).to.eql('assigned');",
+                  "    pm.expect(body.assignedAgentId).to.eql(pm.collectionVariables.get('workerId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assignedAgentId\": \"{{workerId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{focalTaskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{focalTaskId}}"]
+            },
+            "description": "Creates an 'assigned' event + a TaskAssigned notification for the worker. Both surface in the Task 15 context bundle and in /agents/me."
+          },
+          "response": []
+        },
+        {
+          "name": "Worker Adds Context Note",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Note creation returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Note shape includes agent name + agent type', function () {",
+                  "    pm.expect(body.agent).to.be.a('string').and.not.empty;",
+                  "    pm.expect(body.agentType).to.eql('worker');",
+                  "    pm.expect(body.type).to.eql('context');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{workerApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"The auth module should use JWT with 1h expiry.\",\n  \"noteType\": \"context\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{focalTaskId}}/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{focalTaskId}}", "notes"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Worker Starts Focal Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Focal in-progress returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Focal task is now in-progress', function () {",
+                  "    pm.expect(body.status).to.eql('inprogress');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{workerApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"InProgress\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{focalTaskId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{focalTaskId}}", "status"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Worker Decomposes Focal Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Decomposition returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('One backlog subtask was created', function () {",
+                  "    pm.expect(body).to.be.an('array').with.lengthOf(1);",
+                  "    pm.expect(body[0].status).to.eql('backlog');",
+                  "});",
+                  "pm.collectionVariables.set('subtaskId', body[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{workerApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subtasks\": [\n    { \"title\": \"Wire JWT issuer\", \"description\": \"\" }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{focalTaskId}}/subtasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{focalTaskId}}", "subtasks"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Coordinator Assigns Subtask to Worker",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Subtask assignment returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Subtask is assigned to the worker (so subtasks[].assignedAgentName surfaces)', function () {",
+                  "    pm.expect(body.assignedAgentId).to.eql(pm.collectionVariables.get('workerId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assignedAgentId\": \"{{workerId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{subtaskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{subtaskId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Coordinator Records Decision Linked to Focal Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Decision creation returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('decisionId', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Use JWT over session cookies\",\n  \"content\": \"JWT chosen for stateless API.\",\n  \"status\": \"accepted\",\n  \"taskId\": \"{{focalTaskId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/{{projectId}}/decisions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "projects", "{{projectId}}", "decisions"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "AC1 + AC2 — Full Nested Response & All Relationships",
+      "item": [
+        {
+          "name": "GET /tasks/{focalTaskId} — Full Context Bundle",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Focal task context returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "const focalTaskId = pm.collectionVariables.get('focalTaskId');",
+                  "const projectId = pm.collectionVariables.get('projectId');",
+                  "const projectName = pm.collectionVariables.get('projectName');",
+                  "const epicId = pm.collectionVariables.get('epicId');",
+                  "const parentTaskId = pm.collectionVariables.get('parentTaskId');",
+                  "const subtaskId = pm.collectionVariables.get('subtaskId');",
+                  "const predecessorTaskId = pm.collectionVariables.get('predecessorTaskId');",
+                  "const successorTaskId = pm.collectionVariables.get('successorTaskId');",
+                  "const decisionId = pm.collectionVariables.get('decisionId');",
+                  "const workerId = pm.collectionVariables.get('workerId');",
+                  "const workerName = pm.collectionVariables.get('workerName');",
+                  "",
+                  "pm.test('AC1 — top-level keys match PRD section 5.4 shape', function () {",
+                  "    pm.expect(body).to.have.all.keys(",
+                  "        'task', 'project', 'epic', 'parentTask', 'subtasks', 'dependencies', 'notes', 'events', 'relatedDecisions'",
+                  "    );",
+                  "});",
+                  "",
+                  "pm.test('AC1 — task block has core fields populated', function () {",
+                  "    pm.expect(body.task.id).to.eql(focalTaskId);",
+                  "    pm.expect(body.task.projectId).to.eql(projectId);",
+                  "    pm.expect(body.task.epicId).to.eql(epicId);",
+                  "    pm.expect(body.task.parentTaskId).to.eql(parentTaskId);",
+                  "    pm.expect(body.task.assignedAgentId).to.eql(workerId);",
+                  "    pm.expect(body.task.status).to.eql('inprogress');",
+                  "    pm.expect(body.task.metadata.branch).to.eql('feature/auth-module');",
+                  "});",
+                  "",
+                  "pm.test('AC2 — project is populated (new in Task 15)', function () {",
+                  "    pm.expect(body.project, 'project block').to.be.an('object');",
+                  "    pm.expect(body.project.id).to.eql(projectId);",
+                  "    pm.expect(body.project.name).to.eql(projectName);",
+                  "});",
+                  "",
+                  "pm.test('AC2 — epic is populated (id, title, description, status)', function () {",
+                  "    pm.expect(body.epic, 'epic block').to.be.an('object');",
+                  "    pm.expect(body.epic.id).to.eql(epicId);",
+                  "    pm.expect(body.epic.title).to.be.a('string').and.not.empty;",
+                  "    pm.expect(body.epic.description).to.be.a('string');",
+                  "    pm.expect(body.epic.status).to.be.a('string').and.not.empty;",
+                  "});",
+                  "",
+                  "pm.test('AC2 — parentTask is populated', function () {",
+                  "    pm.expect(body.parentTask, 'parentTask block').to.be.an('object');",
+                  "    pm.expect(body.parentTask.id).to.eql(parentTaskId);",
+                  "    pm.expect(body.parentTask.status).to.be.a('string').and.not.empty;",
+                  "});",
+                  "",
+                  "pm.test('AC2 — subtasks include the assigned subtask with assignedAgentName (new in Task 15)', function () {",
+                  "    pm.expect(body.subtasks).to.be.an('array').with.lengthOf(1);",
+                  "    const subtask = body.subtasks[0];",
+                  "    pm.expect(subtask.id).to.eql(subtaskId);",
+                  "    pm.expect(subtask.assignedAgentId).to.eql(workerId);",
+                  "    pm.expect(subtask.assignedAgentName).to.eql(workerName);",
+                  "    pm.expect(subtask.status).to.be.a('string').and.not.empty;",
+                  "});",
+                  "",
+                  "pm.test('AC2 — dependencies.blockedBy includes the done predecessor', function () {",
+                  "    const blockedBy = body.dependencies.blockedBy;",
+                  "    pm.expect(blockedBy).to.be.an('array').with.lengthOf(1);",
+                  "    pm.expect(blockedBy[0].taskId).to.eql(predecessorTaskId);",
+                  "    pm.expect(blockedBy[0].status).to.eql('done');",
+                  "    pm.expect(blockedBy[0].depId).to.be.a('string').and.not.empty;",
+                  "});",
+                  "",
+                  "pm.test('AC2 — dependencies.blocking includes the backlog successor', function () {",
+                  "    const blocking = body.dependencies.blocking;",
+                  "    pm.expect(blocking).to.be.an('array').with.lengthOf(1);",
+                  "    pm.expect(blocking[0].taskId).to.eql(successorTaskId);",
+                  "    pm.expect(blocking[0].status).to.eql('backlog');",
+                  "});",
+                  "",
+                  "pm.test('AC2 — notes include the worker context note with agent + agentType (new in Task 15)', function () {",
+                  "    pm.expect(body.notes).to.be.an('array').with.lengthOf(1);",
+                  "    const note = body.notes[0];",
+                  "    pm.expect(note.agent).to.eql(workerName);",
+                  "    pm.expect(note.agentType).to.eql('worker');",
+                  "    pm.expect(note.type).to.eql('context');",
+                  "    pm.expect(note.content).to.include('JWT');",
+                  "});",
+                  "",
+                  "pm.test('AC2 — events include assigned + status_changed + note_added + decomposed', function () {",
+                  "    const eventTypes = body.events.map(e => e.eventType);",
+                  "    pm.expect(eventTypes).to.include('assigned');",
+                  "    pm.expect(eventTypes).to.include('status_changed');",
+                  "    pm.expect(eventTypes).to.include('note_added');",
+                  "    pm.expect(eventTypes).to.include('decomposed');",
+                  "});",
+                  "",
+                  "pm.test('AC2 — events are ordered chronologically (ascending timestamp)', function () {",
+                  "    for (let i = 0; i < body.events.length - 1; i++) {",
+                  "        pm.expect(new Date(body.events[i].timestamp).getTime())",
+                  "            .to.be.at.most(new Date(body.events[i + 1].timestamp).getTime());",
+                  "    }",
+                  "});",
+                  "",
+                  "pm.test('AC2 — relatedDecisions includes the JWT decision', function () {",
+                  "    pm.expect(body.relatedDecisions).to.be.an('array').with.lengthOf(1);",
+                  "    const decision = body.relatedDecisions[0];",
+                  "    pm.expect(decision.id).to.eql(decisionId);",
+                  "    pm.expect(decision.title).to.eql('Use JWT over session cookies');",
+                  "    pm.expect(decision.status).to.eql('accepted');",
+                  "    pm.expect(decision.agent).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{workerApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{focalTaskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{focalTaskId}}"]
+            },
+            "description": "AC1 + AC2 — pulls the full context bundle for the focal task and asserts every relationship the PRD section 5.4 calls out, including the new fields introduced by Task 15 (project, subtasks[].assignedAgentName, notes[].agentType)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "AC5 — Null Relationships Are Handled Gracefully",
+      "item": [
+        {
+          "name": "GET /tasks/{bareTaskId} — No Epic, No Parent, No Notes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Bare task context returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "const bareTaskId = pm.collectionVariables.get('bareTaskId');",
+                  "const projectId = pm.collectionVariables.get('projectId');",
+                  "",
+                  "pm.test('AC5 — task block is still populated for the bare task', function () {",
+                  "    pm.expect(body.task.id).to.eql(bareTaskId);",
+                  "    pm.expect(body.task.epicId).to.be.null;",
+                  "    pm.expect(body.task.parentTaskId).to.be.null;",
+                  "    pm.expect(body.task.assignedAgentId).to.be.null;",
+                  "});",
+                  "",
+                  "pm.test('AC5 — project block is required and still populated', function () {",
+                  "    pm.expect(body.project, 'project block').to.be.an('object');",
+                  "    pm.expect(body.project.id).to.eql(projectId);",
+                  "});",
+                  "",
+                  "pm.test('AC5 — epic is null', function () {",
+                  "    pm.expect(body.epic).to.be.null;",
+                  "});",
+                  "",
+                  "pm.test('AC5 — parentTask is null', function () {",
+                  "    pm.expect(body.parentTask).to.be.null;",
+                  "});",
+                  "",
+                  "pm.test('AC5 — collections default to empty arrays, not null', function () {",
+                  "    pm.expect(body.subtasks).to.be.an('array').with.lengthOf(0);",
+                  "    pm.expect(body.dependencies.blockedBy).to.be.an('array').with.lengthOf(0);",
+                  "    pm.expect(body.dependencies.blocking).to.be.an('array').with.lengthOf(0);",
+                  "    pm.expect(body.notes).to.be.an('array').with.lengthOf(0);",
+                  "    pm.expect(body.events).to.be.an('array').with.lengthOf(0);",
+                  "    pm.expect(body.relatedDecisions).to.be.an('array').with.lengthOf(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{bareTaskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{bareTaskId}}"]
+            },
+            "description": "AC5 — verifies that nullable relationships (epic, parent, subtasks, dependencies, notes, events, decisions) are returned as null/[] rather than throwing."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /tasks/00000000... — Unknown Task Returns 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Unknown task returns 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{adminApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/00000000-0000-0000-0000-000000000000",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "00000000-0000-0000-0000-000000000000"]
+            },
+            "description": "Confirms the lookup short-circuits cleanly with 404 instead of producing a malformed context bundle."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "AC4 — /agents/me Includes Assigned Tasks + Notification Count",
+      "item": [
+        {
+          "name": "GET /agents/me — Worker Identity, Tasks, Count",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Worker /agents/me returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "const workerId = pm.collectionVariables.get('workerId');",
+                  "const workerName = pm.collectionVariables.get('workerName');",
+                  "const focalTaskId = pm.collectionVariables.get('focalTaskId');",
+                  "const subtaskId = pm.collectionVariables.get('subtaskId');",
+                  "const predecessorTaskId = pm.collectionVariables.get('predecessorTaskId');",
+                  "",
+                  "pm.test('AC4 — agent identity (id, name, type, platform, status)', function () {",
+                  "    pm.expect(body.id).to.eql(workerId);",
+                  "    pm.expect(body.name).to.eql(workerName);",
+                  "    pm.expect(body.type).to.eql('worker');",
+                  "    pm.expect(body.platform).to.be.a('string').and.not.empty;",
+                  "    pm.expect(body.status).to.eql('active');",
+                  "});",
+                  "",
+                  "pm.test('AC4 — assignedTasks is an array of {id,title,status,projectId,updatedAt}', function () {",
+                  "    pm.expect(body.assignedTasks, 'assignedTasks').to.be.an('array');",
+                  "    body.assignedTasks.forEach(task => {",
+                  "        pm.expect(task).to.include.all.keys('id', 'title', 'status', 'projectId', 'updatedAt');",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test('AC4 — assignedTasks contains the focal task and subtask', function () {",
+                  "    const ids = body.assignedTasks.map(t => t.id);",
+                  "    pm.expect(ids).to.include(focalTaskId);",
+                  "    pm.expect(ids).to.include(subtaskId);",
+                  "});",
+                  "",
+                  "pm.test('AC4 — assignedTasks excludes done tasks (predecessor)', function () {",
+                  "    const ids = body.assignedTasks.map(t => t.id);",
+                  "    pm.expect(ids).to.not.include(predecessorTaskId);",
+                  "});",
+                  "",
+                  "pm.test('AC4 — assignedTasks status is lower-case', function () {",
+                  "    body.assignedTasks.forEach(task => {",
+                  "        pm.expect(task.status).to.eql(task.status.toLowerCase());",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test('AC4 — unacknowledgedNotificationCount is a number >= 1 (TaskAssigned was created)', function () {",
+                  "    pm.expect(body.unacknowledgedNotificationCount).to.be.a('number').and.at.least(1);",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('initialUnackCount', body.unacknowledgedNotificationCount);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{workerApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "me"]
+            },
+            "description": "AC4 — verifies the enriched /agents/me payload (assignedTasks list + unacknowledgedNotificationCount)."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /agents/me/notifications — Capture First Notification",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Worker inbox returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Worker has at least one unacknowledged notification', function () {",
+                  "    pm.expect(body).to.be.an('array').with.length.at.least(1);",
+                  "});",
+                  "pm.collectionVariables.set('workerNotificationId', body[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{workerApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/me/notifications/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "me", "notifications", ""]
+            },
+            "description": "Pulls the first unacknowledged notification id so the next step can ack it and prove that unacknowledgedNotificationCount drops by exactly 1."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /agents/me/notifications/{id}/ack — Acknowledge One",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Acknowledge returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Acknowledged notification id matches and is marked acknowledged', function () {",
+                  "    pm.expect(body.id).to.eql(pm.collectionVariables.get('workerNotificationId'));",
+                  "    pm.expect(body.isAcknowledged).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{workerApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/me/notifications/{{workerNotificationId}}/ack",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "me", "notifications", "{{workerNotificationId}}", "ack"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /agents/me — Count Decreased by 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Worker /agents/me returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "const initial = parseInt(pm.collectionVariables.get('initialUnackCount'), 10);",
+                  "",
+                  "pm.test('AC4 — unacknowledgedNotificationCount decreased by exactly 1 after ack', function () {",
+                  "    pm.expect(body.unacknowledgedNotificationCount).to.eql(initial - 1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{workerApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agents/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agents", "me"]
+            },
+            "description": "AC4 — proves that unacknowledgedNotificationCount is sourced from the live notification table by acknowledging one entry and re-fetching."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "AC3 — N+1 Stability Probe (Manual Log Inspection)",
+      "item": [
+        {
+          "name": "First Probe — Baseline Context Fetch",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Probe call 1 returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// AC3 cannot be asserted programmatically from Postman — it requires inspecting EF Core SQL logs.",
+                  "// To verify: enable 'Microsoft.EntityFrameworkCore.Database.Command' Information logging in",
+                  "// src/Hiveboard.Api/appsettings.Development.json before this run, then count SELECTs emitted",
+                  "// for this call. Expect ~8–10 (one per Include path) when AsSplitQuery() is active."
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{workerApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{focalTaskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{focalTaskId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Second Note (Inflate Notes Count)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Second note creation returns 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{workerApiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Second note for N+1 verification.\",\n  \"noteType\": \"progress\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{focalTaskId}}/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{focalTaskId}}", "notes"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Second Probe — Same Endpoint, More Children",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Probe call 2 returns 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Second probe sees both notes — confirms data did grow between calls', function () {",
+                  "    pm.expect(body.notes).to.be.an('array').with.lengthOf(2);",
+                  "});",
+                  "",
+                  "// Compare the SELECT count emitted for this call against the first probe.",
+                  "// AC3 passes when the count is identical (no per-row queries fired against Notes/Agents)."
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{workerApiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{focalTaskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{focalTaskId}}"]
+            },
+            "description": "AC3 — second N+1 probe call. Compare the SQL log between this and the first probe; the SELECT count should be identical even though the focal task now has more notes/events."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Negative Checks",
+      "item": [
+        {
+          "name": "GET /tasks/{focalTaskId} Without API Key — 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Unauthenticated context fetch returns 401', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{focalTaskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{focalTaskId}}"]
+            },
+            "description": "Confirms the endpoint rejects unauthenticated requests so the new context bundle does not leak data outside an org."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000", "type": "string" },
+    { "key": "adminApiKey", "value": "hb_adm_replace_with_HIVEBOARD_ADMIN_KEY", "type": "string" },
+    { "key": "organizationId", "value": "", "type": "string" },
+    { "key": "workerId", "value": "", "type": "string" },
+    { "key": "workerApiKey", "value": "", "type": "string" },
+    { "key": "workerName", "value": "", "type": "string" },
+    { "key": "projectId", "value": "", "type": "string" },
+    { "key": "projectName", "value": "", "type": "string" },
+    { "key": "epicId", "value": "", "type": "string" },
+    { "key": "epicTitle", "value": "", "type": "string" },
+    { "key": "parentTaskId", "value": "", "type": "string" },
+    { "key": "predecessorTaskId", "value": "", "type": "string" },
+    { "key": "focalTaskId", "value": "", "type": "string" },
+    { "key": "successorTaskId", "value": "", "type": "string" },
+    { "key": "bareTaskId", "value": "", "type": "string" },
+    { "key": "subtaskId", "value": "", "type": "string" },
+    { "key": "decisionId", "value": "", "type": "string" },
+    { "key": "workerNotificationId", "value": "", "type": "string" },
+    { "key": "initialUnackCount", "value": "", "type": "string" }
+  ]
+}

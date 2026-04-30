@@ -17,8 +17,10 @@ public static class HiveboardApplicationServiceCollectionExtensions
         services.AddScoped<AdminKeyProvider>();
         services.AddScoped<IDependencyRepository, EfCoreDependencyRepository>();
         services.AddScoped<INotificationRepository, EfCoreNotificationRepository>();
+        services.AddScoped<ITaskContextRepository, EfCoreTaskContextRepository>();
         services.AddScoped<DependencyService>();
         services.AddScoped<NotificationService>();
+        services.AddScoped<TaskContextService>();
         services.AddScoped<TaskStateMachine>();
         services.AddScoped<AgentApplicationService>();
         services.AddScoped<DependencyApplicationService>();

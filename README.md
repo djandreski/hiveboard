@@ -20,7 +20,7 @@ I am building Hiveboard in public with a **19-step Agentic Implementation Guide*
 
 My role is to define architecture, constraints, and acceptance criteria. AI coding agents execute the tasks. I review the output, push the standard up, and iterate.
 
-**Current Progress: 74% Complete (14 of 19 tasks)**
+**Current Progress: 79% Complete (15 of 19 tasks)**
 
 - [x] **Task 1:** Project initialization and clean architecture
 - [x] **Task 2:** Domain model (tasks, epics, agents)
@@ -36,8 +36,9 @@ My role is to define architecture, constraints, and acceptance criteria. AI codi
 - [x] **Task 12:** Task decomposition
 - [x] **Task 13:** Notes and decision records endpoints
 - [x] **Task 14:** Notification engine
-- [ ] **Task 15:** Full task context assembly <- **WE ARE HERE**
-- [ ] **Task 16-19:** Remaining coordination, MCP, dashboard, and polish tasks
+- [x] **Task 15:** Full task context assembly
+- [ ] **Task 16:** MCP server interface <- **WE ARE HERE**
+- [ ] **Task 17-19:** Remaining control plane, dashboard, and polish tasks
 
 Recent milestone:
 
@@ -48,6 +49,7 @@ Recent milestone:
 - Task decomposition now supports worker/coordinator/orchestrator-triggered subtask creation, parent decomposition events, and coordinator/orchestrator notifications.
 - Tasks now support shared notes across agents, and projects now expose decision records with task linking and status filtering.
 - Notification engine centralizes creation behind a `NotificationService`, and agents (or the coordinator key) can poll and acknowledge their own notifications via `/api/v1/agents/me/notifications`.
+- `GET /api/v1/tasks/{id}` now assembles the full task context bundle (epic, parent, subtasks with assignee names, blocked-by/blocking dependencies, notes, events, related decisions, and project metadata) through a dedicated `TaskContextService`, and `GET /api/v1/agents/me` returns the worker's identity, currently assigned tasks, and unacknowledged notification count.
 
 See the full execution checklist in [IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md).
 

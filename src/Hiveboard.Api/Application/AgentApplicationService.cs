@@ -129,18 +129,27 @@ public sealed class AgentApplicationService
         if (agent is null)
             return Results.NotFound(new { error = "Agent not found" });
 
-        var assignedTasks = await _db.AgentTasks
+        var assignedTasksRaw = await _db.AgentTasks
             .Where(task => task.AssignedAgentId == _agentContext.AgentId &&
                            task.Status != TaskStatusEnum.Done)
             .Select(task => new
             {
                 task.Id,
                 task.Title,
-                Status = task.Status.ToString(),
+                Status = task.Status.ToString().ToLowerInvariant(),
                 task.ProjectId,
                 task.UpdatedAt
             })
             .ToListAsync();
+
+        var assignedTasks = assignedTasksRaw
+            .OrderBy(task => task.UpdatedAt)
+            .ToList();
+
+        var unacknowledgedNotificationCount = await _db.Notifications
+            .CountAsync(notification =>
+                notification.AgentId == _agentContext.AgentId &&
+                !notification.IsAcknowledged);
 
         return Results.Ok(new
         {
@@ -152,7 +161,8 @@ public sealed class AgentApplicationService
             agent.OrganizationId,
             agent.LastSeenAt,
             agent.CreatedAt,
-            AssignedTasks = assignedTasks
+            AssignedTasks = assignedTasks,
+            UnacknowledgedNotificationCount = unacknowledgedNotificationCount
         });
     }
 
