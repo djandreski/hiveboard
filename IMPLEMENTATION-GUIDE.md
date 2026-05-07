@@ -1260,7 +1260,7 @@ using the MCP specification over stdio or SSE transport.
 ---
 
 ### Task 17 — Dashboard Control Plane (React SPA)
-**Status:** Implementing
+**Status:** Implemented
 
 **Goal:** Implement a React dashboard as the human control plane for Hiveboard, plus an Admin Panel for key management.
 
@@ -1391,7 +1391,7 @@ development and may optionally be bundled into the API host for self-hosted depl
 ## Phase 5: Polish
 
 ### Task 18 — Logging, Health Checks, Error Handling
-**Status:** Pending
+**Status:** Implementing
 
 **Goal:** Add structured logging, comprehensive health checks, and consistent error responses.
 

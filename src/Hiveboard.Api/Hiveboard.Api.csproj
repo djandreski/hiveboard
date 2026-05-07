@@ -42,7 +42,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <DashboardProjectDir>$(MSBuildProjectDirectory)\..\Hiveboard.Dashboard</DashboardProjectDir>
-    <DashboardWwwrootDir>$(MSBuildProjectDirectory)\wwwroot</DashboardWwwrootDir>
+    <DashboardBundleDir>$(DashboardProjectDir)\dist-bundle</DashboardBundleDir>
+    <DashboardWwwrootDir>$(MSBuildProjectDirectory)\wwwroot\dashboard</DashboardWwwrootDir>
     <BuildDashboardAssets Condition="'$(BuildDashboardAssets)' == ''">false</BuildDashboardAssets>
   </PropertyGroup>
 
@@ -65,11 +66,11 @@
     <Copy SourceFiles="..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.pdb" DestinationFiles="$(TargetDir)Hiveboard.Infrastructure.pdb" SkipUnchangedFiles="false" Condition="Exists('..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.pdb')" />
   </Target>
 
-  <Target Name="CopyDashboardToWwwroot" AfterTargets="Build" DependsOnTargets="BuildDashboard" Condition="'$(BuildDashboardAssets)' == 'true' and '$(DesignTimeBuild)' != 'true' and Exists('$(DashboardProjectDir)\dist')">
+  <Target Name="CopyDashboardToWwwroot" AfterTargets="Build" DependsOnTargets="BuildDashboard" Condition="'$(BuildDashboardAssets)' == 'true' and '$(DesignTimeBuild)' != 'true' and Exists('$(DashboardBundleDir)')">
     <RemoveDir Directories="$(DashboardWwwrootDir)" Condition="Exists('$(DashboardWwwrootDir)')" />
     <MakeDir Directories="$(DashboardWwwrootDir)" />
     <ItemGroup>
-      <DashboardDistFiles Include="$(DashboardProjectDir)\dist\**\*" />
+      <DashboardDistFiles Include="$(DashboardBundleDir)\**\*" />
     </ItemGroup>
     <Copy SourceFiles="@(DashboardDistFiles)" DestinationFiles="@(DashboardDistFiles->'$(DashboardWwwrootDir)\%(RecursiveDir)%(Filename)%(Extension)')" />
   </Target>

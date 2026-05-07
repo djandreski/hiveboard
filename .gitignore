@@ -5,6 +5,10 @@
 # Node artifacts
 **/node_modules/
 **/dist/
+**/dist-bundle/
+
+# Bundled dashboard (built on demand into the API host's wwwroot)
+src/Hiveboard.Api/wwwroot/dashboard/
 
 # IDE/editor
 .vs/

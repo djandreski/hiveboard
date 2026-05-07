@@ -20,7 +20,7 @@ I am building Hiveboard in public with a **19-step Agentic Implementation Guide*
 
 My role is to define architecture, constraints, and acceptance criteria. AI coding agents execute the tasks. I review the output, push the standard up, and iterate.
 
-**Current Progress: 79% Complete (15 of 19 tasks)**
+**Current Progress: 89% Complete (17 of 19 tasks)**
 
 - [x] **Task 1:** Project initialization and clean architecture
 - [x] **Task 2:** Domain model (tasks, epics, agents)
@@ -37,8 +37,10 @@ My role is to define architecture, constraints, and acceptance criteria. AI codi
 - [x] **Task 13:** Notes and decision records endpoints
 - [x] **Task 14:** Notification engine
 - [x] **Task 15:** Full task context assembly
-- [ ] **Task 16:** MCP server interface <- **WE ARE HERE**
-- [ ] **Task 17-19:** Remaining control plane, dashboard, and polish tasks
+- [x] **Task 16:** MCP server interface
+- [x] **Task 17:** Dashboard control plane (React SPA)
+- [ ] **Task 18:** Logging, health checks, error handling <- **WE ARE HERE**
+- [ ] **Task 19:** Final polish
 
 Recent milestone:
 
@@ -50,6 +52,8 @@ Recent milestone:
 - Tasks now support shared notes across agents, and projects now expose decision records with task linking and status filtering.
 - Notification engine centralizes creation behind a `NotificationService`, and agents (or the coordinator key) can poll and acknowledge their own notifications via `/api/v1/agents/me/notifications`.
 - `GET /api/v1/tasks/{id}` now assembles the full task context bundle (epic, parent, subtasks with assignee names, blocked-by/blocking dependencies, notes, events, related decisions, and project metadata) through a dedicated `TaskContextService`, and `GET /api/v1/agents/me` returns the worker's identity, currently assigned tasks, and unacknowledged notification count.
+- Hiveboard now exposes an MCP server at `/mcp` (HTTP/Streamable-HTTP transport, gated by the same `X-Api-Key` flow as the REST API) with 9 tools and 3 URI-template resources for zero-glue agent integration.
+- The React dashboard is now the human control plane: project overview, kanban task board with create/edit/assign/reassign and blocker handling, agent activity, event timeline, decision log with markdown rendering, coordinator console for review approvals/blocker resolution/assignment gaps, and an Admin Panel for admin-key metadata and one-time key rotation reveal. The session-only `X-Api-Key` is stored in `sessionStorage` and re-prompted on auth failure. Bundling for self-hosted packaging is opt-in via `npm run build:bundle` (or `dotnet build -p:BuildDashboardAssets=true`); the API serves bundled assets at `/dashboard` with SPA fallback when present, otherwise the dashboard runs standalone via `npm run dev`.
 
 See the full execution checklist in [IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md).
 
@@ -139,7 +143,14 @@ dotnet test Hiveboard.sln -p:BuildDashboardAssets=false
 ```bash
 cd src/Hiveboard.Dashboard
 npm install
-npm run build
+npm run build              # standalone build → dist/
+npm run build:bundle       # bundled build for self-hosted API → dist-bundle/
+```
+
+For self-hosted packaging, build the API with the dashboard bundled into `wwwroot/dashboard/`:
+
+```bash
+dotnet build src/Hiveboard.Api/Hiveboard.Api.csproj -p:BuildDashboardAssets=true
 ```
 
 ### Run the API (Automated Migrations + Seeding)

@@ -7,6 +7,7 @@ using Hiveboard.Infrastructure;
 using Hiveboard.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.EventLog;
 using Microsoft.OpenApi;
 
@@ -91,6 +92,46 @@ using (var scope = app.Services.CreateScope())
     // Ensure admin key exists
     var adminKeyProvider = scope.ServiceProvider.GetRequiredService<AdminKeyProvider>();
     await adminKeyProvider.EnsureAdminKeyAsync();
+}
+
+// Serve the bundled React SPA at /dashboard when its build output is
+// present in wwwroot/dashboard. The dashboard is intentionally NOT built
+// on every `dotnet build` — operators run `npm run build:bundle` (or
+// build with `-p:BuildDashboardAssets=true`) for self-hosted packaging.
+var dashboardRoot = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "dashboard");
+if (Directory.Exists(dashboardRoot) && File.Exists(Path.Combine(dashboardRoot, "index.html")))
+{
+    var dashboardFiles = new PhysicalFileProvider(dashboardRoot);
+    var dashboardOptions = new StaticFileOptions
+    {
+        FileProvider = dashboardFiles,
+        RequestPath = "/dashboard",
+    };
+
+    app.UseDefaultFiles(new DefaultFilesOptions
+    {
+        FileProvider = dashboardFiles,
+        RequestPath = "/dashboard",
+        DefaultFileNames = new List<string> { "index.html" },
+    });
+    app.UseStaticFiles(dashboardOptions);
+
+    // Client-side router fallback: any /dashboard/* request that didn't
+    // match a static asset returns the SPA shell so deep links work.
+    async Task ServeIndex(HttpContext context)
+    {
+        var index = dashboardFiles.GetFileInfo("index.html");
+        if (!index.Exists)
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+        context.Response.ContentType = "text/html";
+        await context.Response.SendFileAsync(index);
+    }
+
+    app.MapGet("/dashboard", ServeIndex).AllowAnonymous();
+    app.MapFallback("/dashboard/{*path:nonfile}", ServeIndex).AllowAnonymous();
 }
 
 app.UseHiveboardMcpApiKeyFallback(HiveboardMcpServer.DefaultEndpointPath);
