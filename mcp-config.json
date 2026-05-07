@@ -1,0 +1,92 @@
+{
+  "_comment_top": [
+    "Hiveboard MCP server — example client configurations.",
+    "The server is hosted alongside the REST API at /mcp using HTTP/SSE transport.",
+    "All requests require X-Api-Key (admin/coordinator key for control-plane actions,",
+    "or any agent API key for worker / orchestrator flows).",
+    "",
+    "Replace HIVEBOARD_BASE_URL with your deployment (e.g. https://hiveboard.example.com).",
+    "Replace HIVEBOARD_API_KEY with the plaintext key issued by Hiveboard.",
+    "",
+    "Tools exposed (PRD §5.4):",
+    "  hiveboard_list_tasks       — list project tasks with optional filters",
+    "  hiveboard_get_task         — full task context bundle",
+    "  hiveboard_update_status    — transition task status",
+    "  hiveboard_add_note         — add a note to a task",
+    "  hiveboard_decompose_task   — break a task into 1-50 subtasks",
+    "  hiveboard_add_decision     — record an architectural decision",
+    "  hiveboard_get_dependencies — project dependency graph",
+    "  hiveboard_my_tasks         — calling agent's tasks + notification count",
+    "  hiveboard_get_notifications — calling agent's unread notifications",
+    "",
+    "Resources exposed (PRD §5.4):",
+    "  hiveboard://project/{id}/overview   — project summary + stats",
+    "  hiveboard://task/{id}/context       — full task context bundle",
+    "  hiveboard://project/{id}/decisions  — all decision records"
+  ],
+
+  "claudeCode": {
+    "_comment": "~/.claude/mcp_servers.json — Claude Code (https://claude.ai/code)",
+    "mcpServers": {
+      "hiveboard": {
+        "type": "sse",
+        "url": "http://localhost:5000/mcp",
+        "headers": {
+          "X-Api-Key": "REPLACE_WITH_HIVEBOARD_API_KEY"
+        }
+      }
+    }
+  },
+
+  "cursor": {
+    "_comment": ".cursor/mcp.json (project) or ~/.cursor/mcp.json (global)",
+    "mcpServers": {
+      "hiveboard": {
+        "url": "http://localhost:5000/mcp",
+        "transport": "sse",
+        "headers": {
+          "X-Api-Key": "REPLACE_WITH_HIVEBOARD_API_KEY"
+        }
+      }
+    }
+  },
+
+  "githubCopilot": {
+    "_comment": ".vscode/mcp.json — GitHub Copilot Chat in VS Code",
+    "servers": {
+      "hiveboard": {
+        "type": "sse",
+        "url": "http://localhost:5000/mcp",
+        "headers": {
+          "X-Api-Key": "${input:hiveboardApiKey}"
+        }
+      }
+    },
+    "inputs": [
+      {
+        "type": "promptString",
+        "id": "hiveboardApiKey",
+        "description": "Hiveboard API key",
+        "password": true
+      }
+    ]
+  },
+
+  "stdioProxy": {
+    "_comment": [
+      "If your client only supports stdio MCP, run the official mcp-remote bridge",
+      "and let the API key flow via the HIVEBOARD_API_KEY environment variable.",
+      "(The Hiveboard server itself reads HIVEBOARD_API_KEY when an X-Api-Key header",
+      "is missing on /mcp requests — useful for the same self-hosted bridge case.)"
+    ],
+    "mcpServers": {
+      "hiveboard": {
+        "command": "npx",
+        "args": ["-y", "mcp-remote", "http://localhost:5000/mcp"],
+        "env": {
+          "HIVEBOARD_API_KEY": "REPLACE_WITH_HIVEBOARD_API_KEY"
+        }
+      }
+    }
+  }
+}

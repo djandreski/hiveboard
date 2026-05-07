@@ -1176,7 +1176,7 @@ The response must include EVERYTHING a coordinator or worker needs.
 ## Phase 4: MCP + Control Plane
 
 ### Task 16 — MCP Server Interface
-**Status:** Implementing
+**Status:** Implemented
 
 **Goal:** Expose Hiveboard functionality via MCP (Model Context Protocol) so worker agents and optional co-orchestrator agents can integrate with zero custom code.
 
@@ -1247,20 +1247,20 @@ using the MCP specification over stdio or SSE transport.
 ```
 
 **Acceptance Criteria:**
-- [ ] MCP server starts alongside the REST API
-- [ ] All 9 tools are listed when an MCP client connects
-- [ ] All 3 resources are accessible
-- [ ] Tool calls work correctly and return proper results
-- [ ] `list_tools` metadata includes descriptions and input schema for each tool
-- [ ] `list_resources` metadata includes descriptions for each resource
-- [ ] Invalid tool input returns structured MCP validation errors
-- [ ] Unauthorized MCP requests return structured auth errors
-- [ ] Example MCP config file is provided for agent setup
+- [x] MCP server starts alongside the REST API
+- [x] All 9 tools are listed when an MCP client connects
+- [x] All 3 resources are accessible
+- [x] Tool calls work correctly and return proper results
+- [x] `list_tools` metadata includes descriptions and input schema for each tool
+- [x] `list_resources` metadata includes descriptions for each resource
+- [x] Invalid tool input returns structured MCP validation errors
+- [x] Unauthorized MCP requests return structured auth errors
+- [x] Example MCP config file is provided for agent setup
 
 ---
 
 ### Task 17 — Dashboard Control Plane (React SPA)
-**Status:** Pending
+**Status:** Implementing
 
 **Goal:** Implement a React dashboard as the human control plane for Hiveboard, plus an Admin Panel for key management.
 

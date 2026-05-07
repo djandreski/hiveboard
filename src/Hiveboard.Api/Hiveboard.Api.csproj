@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.5" />
+    <PackageReference Include="ModelContextProtocol.AspNetCore" Version="1.2.0" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
   </ItemGroup>
 
@@ -45,66 +46,32 @@
     <BuildDashboardAssets Condition="'$(BuildDashboardAssets)' == ''">false</BuildDashboardAssets>
   </PropertyGroup>
 
-  <Target Name="BuildDashboard"
-          BeforeTargets="Build"
-          Condition="'$(BuildDashboardAssets)' == 'true' and '$(DesignTimeBuild)' != 'true' and Exists('$(DashboardProjectDir)\package.json')">
+  <Target Name="BuildDashboard" BeforeTargets="Build" Condition="'$(BuildDashboardAssets)' == 'true' and '$(DesignTimeBuild)' != 'true' and Exists('$(DashboardProjectDir)\package.json')">
     <Exec Command="npm install" WorkingDirectory="$(DashboardProjectDir)" />
     <Exec Command="npm run build:bundle" WorkingDirectory="$(DashboardProjectDir)" />
   </Target>
 
-  <Target Name="RefreshReferencedAssemblies"
-          BeforeTargets="CoreCompile"
-          Condition="'$(UseSandboxBuildWorkaround)' == 'true' and '$(DesignTimeBuild)' != 'true'">
-    <MSBuild Projects="..\Hiveboard.Core\Hiveboard.Core.csproj;..\Hiveboard.Infrastructure\Hiveboard.Infrastructure.csproj"
-             Targets="Build"
-             Properties="Configuration=$(Configuration);TargetFramework=net10.0;BaseOutputPath=bin\\;BaseIntermediateOutputPath=obj\\;OutputPath=bin\\$(Configuration)\\net10.0\\;IntermediateOutputPath=obj\\$(Configuration)\\net10.0\\" />
+  <Target Name="RefreshReferencedAssemblies" BeforeTargets="CoreCompile" Condition="'$(UseSandboxBuildWorkaround)' == 'true' and '$(DesignTimeBuild)' != 'true'">
+    <MSBuild Projects="..\Hiveboard.Core\Hiveboard.Core.csproj;..\Hiveboard.Infrastructure\Hiveboard.Infrastructure.csproj" Targets="Build" Properties="Configuration=$(Configuration);TargetFramework=net10.0;BaseOutputPath=bin\\;BaseIntermediateOutputPath=obj\\;OutputPath=bin\\$(Configuration)\\net10.0\\;IntermediateOutputPath=obj\\$(Configuration)\\net10.0\\" />
     <MakeDir Directories="$(MSBuildProjectDirectory)\bin\$(Configuration)\net10.0\" />
     <MakeDir Directories="$(TargetDir)" />
-    <Copy SourceFiles="..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.dll"
-          DestinationFiles="$(MSBuildProjectDirectory)\bin\$(Configuration)\net10.0\Hiveboard.Core.dll"
-          SkipUnchangedFiles="false"
-          Condition="Exists('..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.dll')" />
-    <Copy SourceFiles="..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.dll"
-          DestinationFiles="$(TargetDir)Hiveboard.Core.dll"
-          SkipUnchangedFiles="false"
-          Condition="Exists('..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.dll')" />
-    <Copy SourceFiles="..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.pdb"
-          DestinationFiles="$(MSBuildProjectDirectory)\bin\$(Configuration)\net10.0\Hiveboard.Core.pdb"
-          SkipUnchangedFiles="false"
-          Condition="Exists('..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.pdb')" />
-    <Copy SourceFiles="..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.pdb"
-          DestinationFiles="$(TargetDir)Hiveboard.Core.pdb"
-          SkipUnchangedFiles="false"
-          Condition="Exists('..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.pdb')" />
-    <Copy SourceFiles="..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.dll"
-          DestinationFiles="$(MSBuildProjectDirectory)\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.dll"
-          SkipUnchangedFiles="false"
-          Condition="Exists('..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.dll')" />
-    <Copy SourceFiles="..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.dll"
-          DestinationFiles="$(TargetDir)Hiveboard.Infrastructure.dll"
-          SkipUnchangedFiles="false"
-          Condition="Exists('..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.dll')" />
-    <Copy SourceFiles="..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.pdb"
-          DestinationFiles="$(MSBuildProjectDirectory)\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.pdb"
-          SkipUnchangedFiles="false"
-          Condition="Exists('..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.pdb')" />
-    <Copy SourceFiles="..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.pdb"
-          DestinationFiles="$(TargetDir)Hiveboard.Infrastructure.pdb"
-          SkipUnchangedFiles="false"
-          Condition="Exists('..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.pdb')" />
+    <Copy SourceFiles="..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.dll" DestinationFiles="$(MSBuildProjectDirectory)\bin\$(Configuration)\net10.0\Hiveboard.Core.dll" SkipUnchangedFiles="false" Condition="Exists('..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.dll')" />
+    <Copy SourceFiles="..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.dll" DestinationFiles="$(TargetDir)Hiveboard.Core.dll" SkipUnchangedFiles="false" Condition="Exists('..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.dll')" />
+    <Copy SourceFiles="..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.pdb" DestinationFiles="$(MSBuildProjectDirectory)\bin\$(Configuration)\net10.0\Hiveboard.Core.pdb" SkipUnchangedFiles="false" Condition="Exists('..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.pdb')" />
+    <Copy SourceFiles="..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.pdb" DestinationFiles="$(TargetDir)Hiveboard.Core.pdb" SkipUnchangedFiles="false" Condition="Exists('..\Hiveboard.Core\bin\$(Configuration)\net10.0\Hiveboard.Core.pdb')" />
+    <Copy SourceFiles="..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.dll" DestinationFiles="$(MSBuildProjectDirectory)\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.dll" SkipUnchangedFiles="false" Condition="Exists('..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.dll')" />
+    <Copy SourceFiles="..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.dll" DestinationFiles="$(TargetDir)Hiveboard.Infrastructure.dll" SkipUnchangedFiles="false" Condition="Exists('..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.dll')" />
+    <Copy SourceFiles="..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.pdb" DestinationFiles="$(MSBuildProjectDirectory)\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.pdb" SkipUnchangedFiles="false" Condition="Exists('..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.pdb')" />
+    <Copy SourceFiles="..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.pdb" DestinationFiles="$(TargetDir)Hiveboard.Infrastructure.pdb" SkipUnchangedFiles="false" Condition="Exists('..\Hiveboard.Infrastructure\bin\$(Configuration)\net10.0\Hiveboard.Infrastructure.pdb')" />
   </Target>
 
-  <Target Name="CopyDashboardToWwwroot"
-          AfterTargets="Build"
-          DependsOnTargets="BuildDashboard"
-          Condition="'$(BuildDashboardAssets)' == 'true' and '$(DesignTimeBuild)' != 'true' and Exists('$(DashboardProjectDir)\dist')">
+  <Target Name="CopyDashboardToWwwroot" AfterTargets="Build" DependsOnTargets="BuildDashboard" Condition="'$(BuildDashboardAssets)' == 'true' and '$(DesignTimeBuild)' != 'true' and Exists('$(DashboardProjectDir)\dist')">
     <RemoveDir Directories="$(DashboardWwwrootDir)" Condition="Exists('$(DashboardWwwrootDir)')" />
     <MakeDir Directories="$(DashboardWwwrootDir)" />
     <ItemGroup>
       <DashboardDistFiles Include="$(DashboardProjectDir)\dist\**\*" />
     </ItemGroup>
-    <Copy SourceFiles="@(DashboardDistFiles)"
-          DestinationFiles="@(DashboardDistFiles->'$(DashboardWwwrootDir)\%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="@(DashboardDistFiles)" DestinationFiles="@(DashboardDistFiles->'$(DashboardWwwrootDir)\%(RecursiveDir)%(Filename)%(Extension)')" />
   </Target>
 
 </Project>

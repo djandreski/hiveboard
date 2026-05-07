@@ -1,6 +1,7 @@
 using Hiveboard.Api.Application;
 using Hiveboard.Api.Auth;
 using Hiveboard.Api.Endpoints;
+using Hiveboard.Api.Mcp;
 using Hiveboard.Core.Enums;
 using Hiveboard.Infrastructure;
 using Hiveboard.Infrastructure.Data;
@@ -19,6 +20,7 @@ if (OperatingSystem.IsWindows())
 builder.Services.AddHiveboardInfrastructure(builder.Configuration);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddHiveboardApplication();
+builder.Services.AddHiveboardMcpServer();
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
@@ -91,6 +93,7 @@ using (var scope = app.Services.CreateScope())
     await adminKeyProvider.EnsureAdminKeyAsync();
 }
 
+app.UseHiveboardMcpApiKeyFallback(HiveboardMcpServer.DefaultEndpointPath);
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -102,6 +105,12 @@ app.MapGet("/health", () => Results.Ok(new { status = "healthy" }))
     .WithSummary("Health check")
     .WithDescription("Auth: none. Returns the current API host health status.")
     .Produces(StatusCodes.Status200OK);
+
+// MCP server (Model Context Protocol) — exposes Hiveboard tools and
+// resources at /mcp via HTTP/SSE transport. The same X-Api-Key auth flow
+// used by the REST API gates the endpoint; see Mcp/HiveboardMcpServer.cs.
+app.MapMcp(HiveboardMcpServer.DefaultEndpointPath)
+    .RequireAuthorization();
 
 app.MapAgentEndpoints();
 app.MapAdminKeyEndpoints();
