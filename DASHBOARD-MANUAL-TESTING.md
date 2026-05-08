@@ -34,6 +34,20 @@ npm run build:bundle       # bundle for /dashboard
 cd ../..
 ```
 
+> **Troubleshooting.** If `npm run build` errors with
+> `Cannot find native binding ... @rollup/rollup-win32-x64-msvc`
+> (or any other `*-win32-*` / `*-darwin-*` / `*-linux-*` binding), a
+> user-level `~/.npmrc` is forcing npm to install the wrong platform's
+> Rollup binding. The repo's `src/Hiveboard.Dashboard/.npmrc` clears
+> `os` / `cpu` so npm auto-detects, but a `package-lock.json` generated
+> under the bad config still pins wrong bindings. Reinstall clean:
+>
+> ```powershell
+> cd src/Hiveboard.Dashboard
+> Remove-Item -Recurse -Force node_modules, package-lock.json
+> npm install
+> ```
+
 ### 3. Start the API
 
 ```powershell
