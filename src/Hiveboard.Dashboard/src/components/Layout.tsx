@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react'
-import { NavLink, useParams } from 'react-router-dom'
+import { NavLink, useMatch } from 'react-router-dom'
 import { apiKey } from '../api/client'
 
 interface LayoutProps {
@@ -20,8 +20,8 @@ const projectNav = (id: string) => [
 ]
 
 export function Layout({ children }: LayoutProps) {
-  const params = useParams()
-  const projectId = params.id
+  const projectMatch = useMatch('/projects/:id/*')
+  const projectId = projectMatch?.params.id
 
   return (
     <div className="flex min-h-full flex-col">

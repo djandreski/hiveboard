@@ -1,5 +1,5 @@
 import { useCallback, useState, type ReactNode } from 'react'
-import { ApiError, api, usePolling } from '../api/client'
+import { ApiError, api, apiKey, usePolling } from '../api/client'
 import type { AdminKeyInfoResponse, AgentSummary } from '../api/types'
 import { ErrorBanner, EmptyState, LoadingState } from '../components/PageState'
 import { GenericBadge } from '../components/StatusBadge'
@@ -39,11 +39,15 @@ export function AdminPanel() {
     setActionError(null)
     try {
       const response = await api.rotateAdminKey()
+      // Adopt the new key in this tab's session immediately, so the refetch
+      // below and subsequent polling don't fail with 401 from the now-dead
+      // old key. The user still sees the plaintext key once in the modal.
+      apiKey.set(response.apiKey)
       setConfirmAdminRotate(false)
       setRevealed({
         title: 'New admin API key',
         apiKey: response.apiKey,
-        message: `${response.message} Re-authenticate with the new key after saving it.`,
+        message: response.message,
       })
       await refetch()
     } catch (err) {

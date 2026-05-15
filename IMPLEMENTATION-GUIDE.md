@@ -1368,23 +1368,23 @@ development and may optionally be bundled into the API host for self-hosted depl
 ```
 
 **Acceptance Criteria:**
-- [ ] `npm run build` in Hiveboard.Dashboard succeeds
-- [ ] Dashboard works in standalone dev mode
-- [ ] Optional bundled mode works at `/dashboard` when assets are present
-- [ ] Project overview shows all projects with stats
-- [ ] Task board displays kanban columns with correct cards
-- [ ] Coordinators can create, edit, assign, and reassign tasks
-- [ ] Agent activity shows agent list with status
-- [ ] Event timeline shows chronological events
-- [ ] Decision log renders markdown content
-- [ ] Coordinator Console supports approve/send-back and blocker resolution
-- [ ] Auto-refresh works (new data appears within 10 seconds)
-- [ ] Client-side routing works in standalone mode and bundled mode
-- [ ] Admin Panel prompts for admin/coordinator key and stores it in session storage
-- [ ] Admin Panel shows admin key metadata (prefix, timestamps)
-- [ ] Admin key rotation works from the dashboard — new key shown once
-- [ ] Agent key rotation works from the dashboard — new key shown once
-- [ ] Invalid/expired admin key shows auth error and re-prompts
+- [x] `npm run build` in Hiveboard.Dashboard succeeds
+- [x] Dashboard works in standalone dev mode
+- [x] Optional bundled mode works at `/dashboard` when assets are present
+- [x] Project overview shows all projects with stats
+- [x] Task board displays kanban columns with correct cards
+- [x] Coordinators can create, edit, assign, and reassign tasks
+- [x] Agent activity shows agent list with status
+- [x] Event timeline shows chronological events
+- [x] Decision log renders markdown content
+- [x] Coordinator Console supports approve/send-back and blocker resolution
+- [x] Auto-refresh works (new data appears within 10 seconds)
+- [x] Client-side routing works in standalone mode and bundled mode
+- [x] Admin Panel prompts for admin/coordinator key and stores it in session storage
+- [x] Admin Panel shows admin key metadata (prefix, timestamps)
+- [x] Admin key rotation works from the dashboard — new key shown once
+- [x] Agent key rotation works from the dashboard — new key shown once
+- [x] Invalid/expired admin key shows auth error and re-prompts
 
 ---
 
